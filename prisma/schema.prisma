@@ -1,0 +1,125 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+enum AccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+
+enum EntryStatus {
+  DRAFT
+  POSTED
+}
+
+model Currency {
+  id        String   @id @default(uuid())
+  code      String   @unique // e.g., SAR, USD
+  name      String
+  symbol    String
+  isBase    Boolean  @default(false)
+  
+  branches  Branch[]
+  accounts  Account[]
+  lines     JournalLine[]
+}
+
+model Branch {
+  id             String   @id @default(uuid())
+  name           String
+  code           String   @unique
+  currencyId     String
+  currency       Currency @relation(fields: [currencyId], references: [id])
+  
+  accounts       Account[]
+  journalEntries JournalEntry[]
+}
+
+model Account {
+  id          String      @id @default(uuid())
+  branchId    String
+  branch      Branch      @relation(fields: [branchId], references: [id])
+  name        String
+  code        String      @unique
+  type        AccountType
+  currencyId  String
+  currency    Currency    @relation(fields: [currencyId], references: [id])
+  parentId    String?
+  parent      Account?    @relation("AccountHierarchy", fields: [parentId], references: [id])
+  children    Account[]   @relation("AccountHierarchy")
+  
+  journalLines JournalLine[]
+}
+
+model JournalEntry {
+  id          String       @id @default(uuid())
+  branchId    String
+  branch      Branch       @relation(fields: [branchId], references: [id])
+  entryNumber Int?
+  date        DateTime     @default(now())
+  description String?
+  status      EntryStatus  @default(DRAFT)
+  createdBy   String
+  user        User         @relation(fields: [createdBy], references: [id])
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  
+  lines       JournalLine[]
+}
+
+model JournalLine {
+  id             String       @id @default(uuid())
+  journalEntryId String
+  journalEntry   JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  accountId      String
+  account        Account      @relation(fields: [accountId], references: [id])
+  currencyId     String
+  currency       Currency     @relation(fields: [currencyId], references: [id])
+  
+  debit          Decimal      @default(0)
+  credit         Decimal      @default(0)
+  exchangeRate   Decimal      @default(1)
+  
+  baseDebit      Decimal      @default(0)
+  baseCredit     Decimal      @default(0)
+}
+
+model User {
+  id            String         @id @default(uuid())
+  username      String         @unique
+  password      String
+  name          String?
+  role          String         @default("USER")
+  journalEntries JournalEntry[]
+  auditLogs     AuditLog[]
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  action    String
+  entity    String
+  entityId  String
+  details   Json?
+  createdAt DateTime @default(now())
+}
+
+model Period {
+  id        String   @id @default(uuid())
+  name      String
+  startDate DateTime
+  endDate   DateTime
+  isLocked  Boolean  @default(false)
+}
