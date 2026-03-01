@@ -19,7 +19,10 @@ router.post('/', authMiddleware, async (req: any, res) => {
 
 router.get('/', authMiddleware, async (req, res) => {
   try {
-    const entries = await service.getEntries(req.query.branchId as string);
+    const entries = await service.getEntries(
+      req.query.branchId as string,
+      req.query.type as string
+    );
     res.json(entries);
   } catch (error: any) {
     res.status(500).json({ error: error.message });

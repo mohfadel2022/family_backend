@@ -12,8 +12,8 @@ export class JournalEntryService {
     return this.repository.create(data);
   }
 
-  async getEntries(branchId?: string) {
-    return this.repository.findAll(branchId);
+  async getEntries(branchId?: string, type?: string) {
+    return this.repository.findAll(branchId, type);
   }
 
   async getEntryById(id: string) {
