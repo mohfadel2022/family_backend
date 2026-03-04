@@ -2,8 +2,22 @@ import prisma from '../../infrastructure/database/prisma';
 import { JournalEntryType, EntryStatus } from '@prisma/client';
 
 export class SubscriptionService {
-    async getCollections() {
+    async getCollections(user: { id: string, role: string }) {
+        const where: any = {};
+        if (user.role === 'ENCARGADO') {
+            where.items = {
+                some: {
+                    member: {
+                        entity: {
+                            userId: user.id
+                        }
+                    }
+                }
+            };
+        }
+
         return prisma.subscriptionCollection.findMany({
+            where,
             include: {
                 user: { select: { name: true } },
                 items: {
@@ -22,8 +36,8 @@ export class SubscriptionService {
         });
     }
 
-    async getCollection(id: string) {
-        return prisma.subscriptionCollection.findUnique({
+    async getCollection(user: { id: string, role: string }, id: string) {
+        const collection = await prisma.subscriptionCollection.findUnique({
             where: { id },
             include: {
                 items: {
@@ -42,22 +56,80 @@ export class SubscriptionService {
                 }
             }
         });
+
+        if (!collection) return null;
+
+        if (user.role === 'ENCARGADO') {
+            // Check if any member in the collection belongs to an entity managed by the user
+            const member = collection.items[0]?.member;
+            if (member) {
+                const ownEntity = await prisma.entity.findFirst({
+                    where: { id: member.entityId, userId: user.id }
+                });
+                if (!ownEntity) throw new Error('لا تملك صلاحية الوصول لهذا السجل');
+            }
+        }
+
+        return collection;
     }
 
-    async deleteCollection(id: string) {
+    async deleteCollection(user: { id: string, role: string }, id: string) {
+        const existing = await prisma.subscriptionCollection.findUnique({
+            where: { id },
+            include: { items: { include: { member: true } } }
+        });
+
+        if (!existing) throw new Error('السجل غير موجود');
+
+        if (user.role === 'ENCARGADO') {
+            const member = existing.items[0]?.member;
+            if (member) {
+                const ownEntity = await prisma.entity.findFirst({
+                    where: { id: member.entityId, userId: user.id }
+                });
+                if (!ownEntity) throw new Error('لا تملك صلاحية حذف هذا السجل');
+            }
+        }
+
         return prisma.subscriptionCollection.delete({
             where: { id }
         });
     }
 
-    async getMembers(entityId?: string) {
+    async getMembers(user: { id: string, role: string }, entityId?: string) {
+        let where: any = entityId ? { entityId } : {};
+
+        if (user.role === 'ENCARGADO') {
+            if (entityId) {
+                // Verify they own this entity
+                const ownEntity = await prisma.entity.findFirst({
+                    where: { id: entityId, userId: user.id }
+                });
+                if (!ownEntity) {
+                    // Force an empty allow if they don't own it
+                    return [];
+                }
+            } else {
+                // No specific entity requested, only show their own entities
+                where = { entity: { userId: user.id } };
+            }
+        }
+
         return prisma.member.findMany({
-            where: entityId ? { entityId } : {},
-            include: { entity: true }
+            where,
+            include: { entity: true, manager: { select: { id: true, name: true, phone: true } } }
         });
     }
 
-    async getDueMembers(entityId: string, year: number) {
+    async getDueMembers(user: { id: string, role: string }, entityId: string, year: number) {
+        // Enforce ownership if Encargado
+        if (user.role === 'ENCARGADO') {
+            const ownEntity = await prisma.entity.findFirst({
+                where: { id: entityId, userId: user.id }
+            });
+            if (!ownEntity) throw new Error('لا تملك صلاحية الوصول لهذه الجهة');
+        }
+
         const members = await prisma.member.findMany({
             where: {
                 entityId,
@@ -73,6 +145,9 @@ export class SubscriptionService {
                     include: {
                         currency: true
                     }
+                },
+                manager: {
+                    select: { id: true, name: true, phone: true }
                 }
             }
         });
@@ -80,7 +155,7 @@ export class SubscriptionService {
         return members;
     }
 
-    async collectSubscriptions(data: {
+    async collectSubscriptions(user: { id: string, role: string }, data: {
         id?: string;
         date: string;
         description: string;
@@ -89,13 +164,37 @@ export class SubscriptionService {
         creditAccountId?: string;
         branchId?: string;
         status: EntryStatus;
-        createdBy: string;
     }) {
-        const { id, date, description, items, debitAccountId, creditAccountId, branchId, status, createdBy } = data;
+        const { id, date, description, items, debitAccountId, creditAccountId, branchId, status } = data;
+        const createdBy = user.id;
+
+        console.log('--- Collection Process Start ---', { status, id, itemsCount: items.length });
 
         return prisma.$transaction(async (tx) => {
-            // 1. Calculate total amount
-            const totalAmount = items.reduce((sum, item) => sum + Number(item.amount), 0);
+            // 0. Validate same entity for all members
+            const members = await tx.member.findMany({
+                where: { id: { in: items.map(it => it.memberId) } },
+                select: { entityId: true }
+            });
+            const entityIds = new Set(members.map(m => m.entityId));
+            if (entityIds.size > 1) {
+                throw new Error('لا يمكن تحصيل اشتراكات لأكثر من جهة في سجل واحد');
+            }
+
+            const targetEntityId = Array.from(entityIds)[0];
+            if (user.role === 'ENCARGADO') {
+                const ownEntity = await tx.entity.findFirst({
+                    where: { id: targetEntityId, userId: user.id }
+                });
+                if (!ownEntity) throw new Error('لا تملك صلاحية تحصيل اشتراكات لهذه الجهة');
+            }
+
+            // 1. Calculate total amount defensively from possible Decimal objects
+            const totalAmount = items.reduce((sum, item) => {
+                const val = item.amount as any;
+                const amt = (typeof val === 'object' && val !== null) ? Number(val.toString()) : Number(val);
+                return sum + (isNaN(amt) ? 0 : amt);
+            }, 0);
 
             // 2. Create/Update Collection
             const collection = id ? await tx.subscriptionCollection.update({
@@ -110,11 +209,14 @@ export class SubscriptionService {
                     branchId,
                     items: {
                         deleteMany: {},
-                        create: items.map(it => ({
-                            memberId: it.memberId,
-                            year: it.year,
-                            amount: it.amount
-                        }))
+                        create: items.map(it => {
+                            const val = it.amount as any;
+                            return {
+                                memberId: it.memberId,
+                                year: it.year,
+                                amount: (typeof val === 'object' && val !== null) ? Number(val.toString()) : Number(val)
+                            };
+                        })
                     }
                 }
             }) : await tx.subscriptionCollection.create({
@@ -128,27 +230,34 @@ export class SubscriptionService {
                     branchId,
                     createdBy,
                     items: {
-                        create: items.map(it => ({
-                            memberId: it.memberId,
-                            year: it.year,
-                            amount: it.amount
-                        }))
+                        create: items.map(it => {
+                            const val = it.amount as any;
+                            return {
+                                memberId: it.memberId,
+                                year: it.year,
+                                amount: (typeof val === 'object' && val !== null) ? Number(val.toString()) : Number(val)
+                            };
+                        })
                     }
                 }
             });
 
+            console.log('Collection Record Handled:', collection.id);
+
+            let journalEntryId = collection.journalEntryId;
+
             // 3. Handle Receipt Voucher if Posting
             if (status === EntryStatus.POSTED) {
+                // ... validation ...
                 if (!debitAccountId || !creditAccountId || !branchId) {
                     throw new Error('بيانات الحسابات والفرع مطلوبة للترحيل');
                 }
 
-                // Check if already has an entry
                 if (collection.journalEntryId) {
                     throw new Error('هذه المجموعة تم ترحيلها مسبقاً');
                 }
 
-                // Validate all items belong to the same branch
+                // ... fetch branch ...
                 const memberDetails = await tx.member.findMany({
                     where: { id: { in: items.map(it => it.memberId) } },
                     include: { entity: true }
@@ -195,35 +304,54 @@ export class SubscriptionService {
                     }
                 });
 
+                journalEntryId = entry.id;
+
                 // Link to collection
                 await tx.subscriptionCollection.update({
                     where: { id: collection.id },
                     data: { journalEntryId: entry.id }
                 });
 
-                // Create individual subscription records
-                await tx.memberSubscription.createMany({
-                    data: items.map(it => ({
-                        memberId: it.memberId,
-                        year: it.year,
-                        amount: it.amount,
-                        journalEntryId: entry.id,
-                        paymentDate: new Date(date)
-                    }))
-                });
+                // Create individual subscription records (SQLite doesn't support createMany)
+                for (const it of items) {
+                    const val = it.amount as any;
+                    await tx.memberSubscription.create({
+                        data: {
+                            memberId: it.memberId,
+                            year: it.year,
+                            amount: (typeof val === 'object' && val !== null) ? Number(val.toString()) : Number(val),
+                            journalEntryId: entry.id
+                        }
+                    });
+                }
             }
 
-            return collection;
+            return {
+                ...collection,
+                journalEntryId
+            };
         });
     }
 
-    async unpostCollection(id: string, userId: string) {
+    async unpostCollection(id: string, user: { id: string, role: string }) {
         return prisma.$transaction(async (tx) => {
             const collection = await tx.subscriptionCollection.findUnique({
-                where: { id }
+                where: { id },
+                include: { items: { include: { member: true } } }
             });
 
             if (!collection) throw new Error('السجل غير موجود');
+
+            if (user.role === 'ENCARGADO') {
+                // Check if any member in the collection belongs to an entity managed by the user
+                const member = collection.items[0]?.member;
+                if (member) {
+                    const ownEntity = await tx.entity.findFirst({
+                        where: { id: member.entityId, userId: user.id }
+                    });
+                    if (!ownEntity) throw new Error('لا تملك صلاحية إلغاء ترحيل هذا السجل');
+                }
+            }
             if (collection.status !== 'POSTED') throw new Error('السجل ليس في حالة ترحيل');
 
             // Check if period is locked
@@ -255,7 +383,7 @@ export class SubscriptionService {
             // Audit Log
             await tx.auditLog.create({
                 data: {
-                    userId,
+                    userId: user.id,
                     action: 'UNPOST_COLLECTION',
                     entity: 'SubscriptionCollection',
                     entityId: id
@@ -263,6 +391,88 @@ export class SubscriptionService {
             });
 
             return updated;
+        });
+    }
+
+    async importMembers(user: { id: string, role: string }, filename: string, rows: any[]) {
+        let importedCount = 0;
+        let errorsCount = 0;
+        const errorsDetails: any[] = [];
+
+        // Pre-fetch managed entities if ENCARGADO
+        let managedEntityIds: string[] = [];
+        if (user.role === 'ENCARGADO') {
+            const entities = await prisma.entity.findMany({
+                where: { userId: user.id },
+                select: { id: true }
+            });
+            managedEntityIds = entities.map(e => e.id);
+        }
+
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            try {
+                if (!row.name) throw new Error('الاسم مطلوب');
+                if (!row.entityId) throw new Error('الجهة مطلوبة');
+
+                if (user.role === 'ENCARGADO' && !managedEntityIds.includes(String(row.entityId))) {
+                    throw new Error('لا تملك صلاحية الاستيراد لهذه الجهة');
+                }
+
+                // Set default affiliationYear to 2023 if missing or invalid
+                const affiliationYear = Number(row.affiliationYear) || 2023;
+
+                const statusInput = row.status?.toUpperCase() || 'ACTIVE';
+                const status = statusInput === 'INACTIVE' ? 'INACTIVE' : statusInput === 'DECEASED' ? 'DECEASED' : 'ACTIVE';
+
+                await prisma.member.create({
+                    data: {
+                        name: String(row.name).trim(),
+                        entityId: String(row.entityId),
+                        affiliationYear,
+                        status,
+                        stoppedAt: row.stoppedAt ? new Date(row.stoppedAt) : null,
+                        phone: row.phone ? String(row.phone).trim() : null,
+                        managerId: row.managerId ? String(row.managerId) : null
+                    }
+                });
+
+                importedCount++;
+            } catch (e: any) {
+                errorsCount++;
+                errorsDetails.push({ row: i + 1, entityId: row.entityId, name: row.name, error: e.message || 'خطأ غير معروف' });
+            }
+        }
+
+        const report = await prisma.importReport.create({
+            data: {
+                filename,
+                totalRecords: rows.length,
+                importedCount,
+                errorsCount,
+                errorsDetails: errorsDetails,
+                userId: user.id
+            }
+        });
+
+        // Audit Logging
+        await prisma.auditLog.create({
+            data: {
+                userId: user.id,
+                action: 'IMPORT_MEMBERS',
+                entity: 'Member',
+                entityId: report.id,
+                details: { filename, importedCount, errorsCount }
+            }
+        });
+
+        return report;
+    }
+
+    async getImportReports() {
+        return prisma.importReport.findMany({
+            orderBy: { date: 'desc' },
+            include: { user: { select: { name: true } } }
         });
     }
 }

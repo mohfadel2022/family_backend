@@ -2,8 +2,16 @@ import prisma from '../../infrastructure/database/prisma';
 import { EntryStatus } from '@prisma/client';
 
 export class DashboardService {
-    async getSummary(branchId?: string) {
-        const whereBranch = branchId ? { branchId } : {};
+    async getSummary(user: { id: string, role: string }, branchId?: string) {
+        const whereBranch: any = branchId ? { branchId } : {};
+
+        if (user.role === 'ENCARGADO') {
+            // How do we scope dashboard for Encargado?
+            // Usually they care about their entity's performance.
+            // For now, let's filter by branch if they are linked to one, or just entity transactions.
+            // Actually, the current dashboard is very high-level (Assets, Revenue, Expenses).
+            // If they are ENCARGADO, maybe they should only see revenue from their entities.
+        }
 
         const now = new Date();
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -62,7 +70,18 @@ export class DashboardService {
         const revenueLines = await prisma.journalLine.findMany({
             where: {
                 account: { type: 'REVENUE', ...whereBranch },
-                journalEntry: monthlyEntryWhere
+                journalEntry: {
+                    ...monthlyEntryWhere,
+                    ...(user.role === 'ENCARGADO' ? {
+                        memberSubscriptions: {
+                            some: {
+                                member: {
+                                    entity: { userId: user.id }
+                                }
+                            }
+                        }
+                    } : {})
+                }
             },
             select: {
                 debit: true,
@@ -85,7 +104,18 @@ export class DashboardService {
         const revenueBaseLine = await prisma.journalLine.aggregate({
             where: {
                 account: { type: 'REVENUE', ...whereBranch },
-                journalEntry: monthlyEntryWhere
+                journalEntry: {
+                    ...monthlyEntryWhere,
+                    ...(user.role === 'ENCARGADO' ? {
+                        memberSubscriptions: {
+                            some: {
+                                member: {
+                                    entity: { userId: user.id }
+                                }
+                            }
+                        }
+                    } : {})
+                }
             },
             _sum: { baseCredit: true, baseDebit: true }
         });
@@ -137,7 +167,24 @@ export class DashboardService {
         // 5. Recent Transactions
         // ──────────────────────────────────────────────
         const recentEntries = await prisma.journalEntry.findMany({
-            where: { ...whereBranch, status: EntryStatus.POSTED },
+            where: {
+                ...whereBranch,
+                status: EntryStatus.POSTED,
+                ...(user.role === 'ENCARGADO' ? {
+                    OR: [
+                        { createdBy: user.id },
+                        {
+                            memberSubscriptions: {
+                                some: {
+                                    member: {
+                                        entity: { userId: user.id }
+                                    }
+                                }
+                            }
+                        }
+                    ]
+                } : {})
+            },
             orderBy: [
                 { date: 'desc' },
                 { entryNumber: 'desc' }

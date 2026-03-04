@@ -15,6 +15,13 @@ export enum JournalEntryType {
   PAYMENT = 'PAYMENT'
 }
 
+export interface AttachmentDTO {
+  fileName: string;
+  fileUrl: string;
+  fileType?: string;
+  fileSize?: number;
+}
+
 export interface JournalEntryDTO {
   branchId: string;
   description: string;
@@ -22,6 +29,7 @@ export interface JournalEntryDTO {
   date: Date;
   lines: JournalLineDTO[];
   createdBy: string;
+  attachments?: AttachmentDTO[];
 }
 
 export class AccountingValidator {

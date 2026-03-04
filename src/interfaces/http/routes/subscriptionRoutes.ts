@@ -3,11 +3,13 @@ import { authMiddleware } from '../middlewares/authMiddleware';
 import prisma from '../../../infrastructure/database/prisma';
 import { SubscriptionService } from '../../../application/services/SubscriptionService';
 
+import { checkPermission } from '../middlewares/roleMiddleware';
+
 const router = Router();
 const service = new SubscriptionService();
 
 // Entities CRUD
-router.get('/entities', authMiddleware, async (req, res) => {
+router.get('/entities', authMiddleware, checkPermission(['ENTITIES_VIEW']), async (req, res) => {
     try {
         const entities = await prisma.entity.findMany({
             include: {
@@ -22,7 +24,7 @@ router.get('/entities', authMiddleware, async (req, res) => {
     }
 });
 
-router.post('/entities', authMiddleware, async (req, res) => {
+router.post('/entities', authMiddleware, checkPermission(['ENTITIES_CREATE']), async (req, res) => {
     try {
         const { name, code, currencyId, userId, annualSubscription, branchId } = req.body;
         const entity = await prisma.entity.create({
@@ -41,7 +43,7 @@ router.post('/entities', authMiddleware, async (req, res) => {
     }
 });
 
-router.put('/entities/:id', authMiddleware, async (req, res) => {
+router.put('/entities/:id', authMiddleware, checkPermission(['ENTITIES_EDIT']), async (req, res) => {
     try {
         const { name, code, currencyId, userId, annualSubscription, branchId } = req.body;
         const entity = await prisma.entity.update({
@@ -61,7 +63,7 @@ router.put('/entities/:id', authMiddleware, async (req, res) => {
     }
 });
 
-router.delete('/entities/:id', authMiddleware, async (req, res) => {
+router.delete('/entities/:id', authMiddleware, checkPermission(['ENTITIES_DELETE']), async (req, res) => {
     try {
         await prisma.entity.delete({ where: { id: req.params.id } });
         res.status(204).end();
@@ -71,29 +73,48 @@ router.delete('/entities/:id', authMiddleware, async (req, res) => {
 });
 
 // Members CRUD
-router.get('/members', authMiddleware, async (req, res) => {
+router.get('/members', authMiddleware, checkPermission(['MEMBERS_VIEW']), async (req: any, res) => {
     try {
         const entityId = req.query.entityId as string;
-        const members = await service.getMembers(entityId);
+        const members = await service.getMembers(req.user, entityId);
         res.json(members);
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
 });
 
-router.post('/members', authMiddleware, async (req, res) => {
+router.post('/members', authMiddleware, checkPermission(['MEMBERS_CREATE']), async (req, res) => {
     try {
         console.log('Create Member Body:', req.body);
-        const { name, entityId, affiliationYear, stoppedAt, status } = req.body;
+        const { name, entityId, affiliationYear, stoppedAt, status, phone, managerId } = req.body;
+
+        // Validation: require stoppedAt if status is not ACTIVE
+        if ((status === 'DECEASED' || status === 'INACTIVE') && (!stoppedAt || stoppedAt === 'null')) {
+            return res.status(400).json({ error: 'عذراً، يجب تحديد سنة التوقف أو الوفاة للحالات غير النشطة' });
+        }
+
         const member = await prisma.member.create({
             data: {
                 name: name.trim(),
                 entityId,
                 affiliationYear: Number(affiliationYear) || new Date().getFullYear(),
                 status: (status && status !== 'null') ? status : 'ACTIVE',
-                stoppedAt: stoppedAt ? new Date(stoppedAt) : null
+                stoppedAt: stoppedAt ? new Date(stoppedAt) : null,
+                phone: phone || null,
+                managerId: managerId || null
             }
         });
+        // Audit Logging
+        await prisma.auditLog.create({
+            data: {
+                userId: (req as any).user.id,
+                action: 'CREATE_MEMBER',
+                entity: 'Member',
+                entityId: member.id,
+                details: { name: member.name }
+            }
+        });
+
         res.status(201).json(member);
     } catch (error: any) {
         console.error('Create Member Error:', error);
@@ -101,10 +122,16 @@ router.post('/members', authMiddleware, async (req, res) => {
     }
 });
 
-router.put('/members/:id', authMiddleware, async (req, res) => {
+router.put('/members/:id', authMiddleware, checkPermission(['MEMBERS_EDIT']), async (req, res) => {
     try {
         console.log('Update Member Body:', req.body);
-        const { name, entityId, affiliationYear, stoppedAt, status } = req.body;
+        const { name, entityId, affiliationYear, stoppedAt, status, phone, managerId } = req.body;
+
+        // Validation: require stoppedAt if status is not ACTIVE
+        if ((status === 'DECEASED' || status === 'INACTIVE') && (!stoppedAt || stoppedAt === 'null')) {
+            return res.status(400).json({ error: 'عذراً، يجب تحديد سنة التوقف أو الوفاة للحالات غير النشطة' });
+        }
+
         const member = await prisma.member.update({
             where: { id: req.params.id },
             data: {
@@ -112,9 +139,22 @@ router.put('/members/:id', authMiddleware, async (req, res) => {
                 entityId,
                 affiliationYear: Number(affiliationYear) || new Date().getFullYear(),
                 status: (status && status !== 'null') ? status : 'ACTIVE',
-                stoppedAt: (stoppedAt && stoppedAt !== 'null') ? new Date(stoppedAt) : null
+                stoppedAt: (stoppedAt && stoppedAt !== 'null') ? new Date(stoppedAt) : null,
+                phone: phone || null,
+                managerId: managerId || null
             }
         });
+        // Audit Logging
+        await prisma.auditLog.create({
+            data: {
+                userId: (req as any).user.id,
+                action: 'UPDATE_MEMBER',
+                entity: 'Member',
+                entityId: member.id,
+                details: { name: member.name }
+            }
+        });
+
         res.json(member);
     } catch (error: any) {
         console.error('Update Member Error:', error);
@@ -122,24 +162,76 @@ router.put('/members/:id', authMiddleware, async (req, res) => {
     }
 });
 
-router.delete('/members/:id', authMiddleware, async (req, res) => {
+router.delete('/members/:id', authMiddleware, checkPermission(['MEMBERS_DELETE']), async (req, res) => {
     try {
+        const id = req.params.id;
+
+        // Check for dependencies
+        const subsCount = await prisma.memberSubscription.count({ where: { memberId: id } });
+        const itemsCount = await prisma.subscriptionCollectionItem.count({ where: { memberId: id } });
+        const subordinatesCount = await prisma.member.count({ where: { managerId: id } });
+
+        if (subsCount > 0 || itemsCount > 0 || subordinatesCount > 0) {
+            let errorMsg = 'لا يمكن حذف العضو لوجود بيانات مرتبطة به: ';
+            if (subsCount > 0) errorMsg += 'اشتراكات، ';
+            if (itemsCount > 0) errorMsg += 'عمليات تحصيل، ';
+            if (subordinatesCount > 0) errorMsg += 'أعضاء مسجلين تحت إشرافه، ';
+            errorMsg = errorMsg.slice(0, -2) + '. يرجى حذف العمليات المرتبطة أو تغيير حالة العضو.';
+
+            return res.status(400).json({ error: errorMsg });
+        }
+
         await prisma.member.delete({
-            where: { id: req.params.id }
+            where: { id }
         });
+
+        // Audit Logging
+        await prisma.auditLog.create({
+            data: {
+                userId: (req as any).user.id,
+                action: 'DELETE_MEMBER',
+                entity: 'Member',
+                entityId: req.params.id
+            }
+        });
+
         res.status(204).end();
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
 });
 
+router.post('/members/import', authMiddleware, checkPermission(['MEMBERS_IMPORT']), async (req: any, res) => {
+    try {
+        const { filename, rows } = req.body;
+        if (!filename || !rows || !Array.isArray(rows)) {
+            return res.status(400).json({ error: 'بيانات الاستيراد غير صحيحة' });
+        }
+
+        const report = await service.importMembers(req.user, filename, rows);
+        res.status(201).json(report);
+    } catch (error: any) {
+        console.error('Import Members Error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.get('/members/import/reports', authMiddleware, checkPermission(['MEMBERS_VIEW']), async (req: any, res) => {
+    try {
+        const reports = await service.getImportReports();
+        res.json(reports);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Smart Filter: Get members who haven't paid for a year
-router.get('/due', authMiddleware, async (req, res) => {
+router.get('/due', authMiddleware, checkPermission(['MEMBERS_VIEW']), async (req: any, res) => {
     try {
         const { entityId, year } = req.query;
         if (!entityId || !year) return res.status(400).json({ error: 'entityId and year are required' });
 
-        const members = await service.getDueMembers(entityId as string, Number(year));
+        const members = await service.getDueMembers(req.user, entityId as string, Number(year));
         res.json(members);
     } catch (error: any) {
         res.status(500).json({ error: error.message });
@@ -147,12 +239,9 @@ router.get('/due', authMiddleware, async (req, res) => {
 });
 
 // Collection: Create/Update batch (Draft or Posted)
-router.post('/collect', authMiddleware, async (req: any, res) => {
+router.post('/collect', authMiddleware, checkPermission(['VOUCHERS_CREATE']), async (req: any, res) => {
     try {
-        const collection = await service.collectSubscriptions({
-            ...req.body,
-            createdBy: req.user.id
-        });
+        const collection = await service.collectSubscriptions(req.user, req.body);
         res.status(201).json(collection);
     } catch (error: any) {
         console.error('Collect Error:', error);
@@ -160,18 +249,18 @@ router.post('/collect', authMiddleware, async (req: any, res) => {
     }
 });
 
-router.get('/collections', authMiddleware, async (req, res) => {
+router.get('/collections', authMiddleware, checkPermission(['VOUCHERS_VIEW']), async (req: any, res) => {
     try {
-        const collections = await service.getCollections();
+        const collections = await service.getCollections(req.user);
         res.json(collections);
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
 });
 
-router.get('/collections/:id', authMiddleware, async (req, res) => {
+router.get('/collections/:id', authMiddleware, checkPermission(['VOUCHERS_VIEW']), async (req: any, res) => {
     try {
-        const collection = await service.getCollection(req.params.id);
+        const collection = await service.getCollection(req.user, req.params.id);
         if (!collection) return res.status(404).json({ error: 'Collection not found' });
         res.json(collection);
     } catch (error: any) {
@@ -179,18 +268,18 @@ router.get('/collections/:id', authMiddleware, async (req, res) => {
     }
 });
 
-router.post('/collections/:id/unpost', authMiddleware, async (req: any, res) => {
+router.post('/collections/:id/unpost', authMiddleware, checkPermission(['VOUCHERS_EDIT']), async (req: any, res) => {
     try {
-        const updated = await service.unpostCollection(req.params.id, req.user.id);
+        const updated = await service.unpostCollection(req.params.id, req.user);
         res.json(updated);
     } catch (error: any) {
         res.status(400).json({ error: error.message });
     }
 });
 
-router.delete('/collections/:id', authMiddleware, async (req, res) => {
+router.delete('/collections/:id', authMiddleware, checkPermission(['VOUCHERS_DELETE']), async (req: any, res) => {
     try {
-        await service.deleteCollection(req.params.id);
+        await service.deleteCollection(req.user, req.params.id);
         res.status(204).end();
     } catch (error: any) {
         res.status(400).json({ error: error.message });
@@ -206,7 +295,35 @@ router.get('/entry/:id/members', authMiddleware, async (req, res) => {
                 member: true
             }
         });
-        res.json(subs.map(s => s.member));
+        // Unique members by ID and aggregate total amount paid in this entry
+        const membersMap = new Map();
+        subs.forEach(s => {
+            if (s.member) {
+                if (!membersMap.has(s.member.id)) {
+                    membersMap.set(s.member.id, {
+                        ...s.member,
+                        totalPaid: Number(s.amount)
+                    });
+                } else {
+                    membersMap.get(s.member.id).totalPaid += Number(s.amount);
+                }
+            }
+        });
+        res.json(Array.from(membersMap.values()));
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+import { SubscriptionReportService } from '../../../application/services/SubscriptionReportService';
+
+const pivotService = new SubscriptionReportService();
+
+// Pivot Report
+router.get('/reports/pivot', authMiddleware, checkPermission(['REPORTS_VIEW']), async (req: any, res) => {
+    try {
+        const report = await pivotService.getSubscriptionPivot(req.user);
+        res.json(report);
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }

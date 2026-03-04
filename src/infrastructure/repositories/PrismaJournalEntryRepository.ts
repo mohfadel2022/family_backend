@@ -3,7 +3,7 @@ import prisma from '../database/prisma';
 import { JournalEntryDTO, AccountingValidator } from '../../domain/models/AccountingTypes';
 
 export class PrismaJournalEntryRepository {
-  async create(data: JournalEntryDTO) {
+  async create(user: { id: string, role: string }, data: JournalEntryDTO) {
     return prisma.$transaction(async (tx: any) => {
       // 0. Check if period is locked
       const period = await tx.period.findFirst({
@@ -47,10 +47,19 @@ export class PrismaJournalEntryRepository {
               baseDebit: line.baseDebit,
               baseCredit: line.baseCredit,
             }))
+          },
+          attachments: {
+            create: data.attachments?.map(att => ({
+              fileName: att.fileName,
+              fileUrl: att.fileUrl,
+              fileType: att.fileType,
+              fileSize: att.fileSize
+            })) || []
           }
         },
         include: {
-          lines: true
+          lines: true,
+          attachments: true
         }
       });
 
@@ -69,13 +78,31 @@ export class PrismaJournalEntryRepository {
     });
   }
 
-  async findAll(branchId?: string, type?: string) {
+  async findAll(user: { id: string, role: string }, branchId?: string, type?: string) {
+    const whereAnd: any[] = [];
+    if (branchId) whereAnd.push({ branchId });
+    if (type) whereAnd.push({ type: type as any });
+
+    if (user.role === 'ENCARGADO') {
+      whereAnd.push({
+        OR: [
+          { createdBy: user.id },
+          {
+            memberSubscriptions: {
+              some: {
+                member: {
+                  entity: { userId: user.id }
+                }
+              }
+            }
+          }
+        ]
+      });
+    }
+
     return prisma.journalEntry.findMany({
       where: {
-        AND: [
-          branchId ? { branchId } : {},
-          type ? { type: type as any } : {}
-        ]
+        AND: whereAnd
       },
       include: {
         lines: {
@@ -84,7 +111,8 @@ export class PrismaJournalEntryRepository {
             currency: true
           }
         },
-        branch: true
+        branch: true,
+        attachments: true
       },
       orderBy: [
         { date: 'desc' },
@@ -93,8 +121,8 @@ export class PrismaJournalEntryRepository {
     });
   }
 
-  async findById(id: string) {
-    return prisma.journalEntry.findUnique({
+  async findById(user: { id: string, role: string }, id: string) {
+    const entry = await prisma.journalEntry.findUnique({
       where: { id },
       include: {
         lines: {
@@ -102,15 +130,47 @@ export class PrismaJournalEntryRepository {
             account: true,
             currency: true
           }
+        },
+        attachments: true,
+        memberSubscriptions: {
+          include: { member: { include: { entity: true } } }
         }
       }
     });
+
+    if (!entry) return null;
+
+    if (user.role === 'ENCARGADO') {
+      const isOwner = entry.createdBy === user.id;
+      const isLinkedToManagedEntity = entry.memberSubscriptions.some(
+        (s: any) => s.member.entity.userId === user.id
+      );
+      if (!isOwner && !isLinkedToManagedEntity) {
+        throw new Error('Forbidden: You do not have access to this voucher');
+      }
+    }
+
+    return entry;
   }
 
-  async update(id: string, data: JournalEntryDTO) {
+  async update(user: { id: string, role: string }, id: string, data: JournalEntryDTO) {
     return prisma.$transaction(async (tx: any) => {
-      const existing = await tx.journalEntry.findUnique({ where: { id } });
+      const existing = await tx.journalEntry.findUnique({
+        where: { id },
+        include: { memberSubscriptions: { include: { member: { include: { entity: true } } } } }
+      });
       if (!existing) throw new Error('Entry not found');
+
+      if (user.role === 'ENCARGADO') {
+        const isOwner = existing.createdBy === user.id;
+        const isLinkedToManagedEntity = existing.memberSubscriptions.some(
+          (s: any) => s.member.entity.userId === user.id
+        );
+        if (!isOwner && !isLinkedToManagedEntity) {
+          throw new Error('Forbidden: You do not have access to this voucher');
+        }
+      }
+
       if (existing.status === 'POSTED') throw new Error('Cannot update posted entry');
 
       // Check if new date is in locked period
@@ -125,6 +185,7 @@ export class PrismaJournalEntryRepository {
 
       // Delete old lines and create new ones
       await tx.journalLine.deleteMany({ where: { journalEntryId: id } });
+      await tx.attachment.deleteMany({ where: { journalEntryId: id } });
 
       // Calculate totalAmount
       const totalAmount = data.lines.reduce((sum, line) => sum + Number(line.baseDebit), 0);
@@ -147,29 +208,64 @@ export class PrismaJournalEntryRepository {
               baseDebit: line.baseDebit,
               baseCredit: line.baseCredit,
             }))
+          },
+          attachments: {
+            create: data.attachments?.map(att => ({
+              fileName: att.fileName,
+              fileUrl: att.fileUrl,
+              fileType: att.fileType,
+              fileSize: att.fileSize
+            })) || []
           }
         },
-        include: { lines: true }
+        include: { lines: true, attachments: true }
       });
     });
   }
 
-  async delete(id: string) {
-    const existing = await prisma.journalEntry.findUnique({ where: { id } });
+  async delete(user: { id: string, role: string }, id: string) {
+    const existing = await prisma.journalEntry.findUnique({
+      where: { id },
+      include: { memberSubscriptions: { include: { member: { include: { entity: true } } } } }
+    });
     if (!existing) throw new Error('Entry not found');
+
+    if (user.role === 'ENCARGADO') {
+      const isOwner = existing.createdBy === user.id;
+      const isLinkedToManagedEntity = existing.memberSubscriptions.some(
+        (s: any) => s.member.entity.userId === user.id
+      );
+      if (!isOwner && !isLinkedToManagedEntity) {
+        throw new Error('Forbidden: You do not have access to this voucher');
+      }
+    }
+
     if (existing.status === 'POSTED') throw new Error('Cannot delete posted entry');
 
     return prisma.journalEntry.delete({ where: { id } });
   }
 
-  async postEntry(id: string, userId: string) {
+  async postEntry(user: { id: string, role: string }, id: string) {
     return prisma.$transaction(async (tx: any) => {
       const entry = await tx.journalEntry.findUnique({
         where: { id },
-        include: { lines: { include: { account: true } } }
+        include: {
+          lines: { include: { account: true } },
+          memberSubscriptions: { include: { member: { include: { entity: true } } } }
+        }
       });
 
       if (!entry) throw new Error('Entry not found');
+
+      if (user.role === 'ENCARGADO') {
+        const isOwner = entry.createdBy === user.id;
+        const isLinkedToManagedEntity = entry.memberSubscriptions.some(
+          (s: any) => s.member.entity.userId === user.id
+        );
+        if (!isOwner && !isLinkedToManagedEntity) {
+          throw new Error('Forbidden: You do not have access to this voucher');
+        }
+      }
       if (entry.status === 'POSTED') throw new Error('Entry already posted');
 
       // Check if period is locked
@@ -204,7 +300,7 @@ export class PrismaJournalEntryRepository {
 
       await tx.auditLog.create({
         data: {
-          userId,
+          userId: user.id,
           action: 'POST',
           entity: 'JournalEntry',
           entityId: updated.id,
@@ -215,14 +311,27 @@ export class PrismaJournalEntryRepository {
     });
   }
 
-  async unpostEntry(id: string, userId: string) {
+  async unpostEntry(user: { id: string, role: string }, id: string) {
     return prisma.$transaction(async (tx: any) => {
       const entry = await tx.journalEntry.findUnique({
         where: { id },
-        include: { lines: true }
+        include: {
+          lines: true,
+          memberSubscriptions: { include: { member: { include: { entity: true } } } }
+        }
       });
 
       if (!entry) throw new Error('Entry not found');
+
+      if (user.role === 'ENCARGADO') {
+        const isOwner = entry.createdBy === user.id;
+        const isLinkedToManagedEntity = entry.memberSubscriptions.some(
+          (s: any) => s.member.entity.userId === user.id
+        );
+        if (!isOwner && !isLinkedToManagedEntity) {
+          throw new Error('Forbidden: You do not have access to this voucher');
+        }
+      }
       if (entry.status === 'DRAFT') throw new Error('Entry is already in draft status');
 
       // Check if period is locked
@@ -242,7 +351,7 @@ export class PrismaJournalEntryRepository {
 
       await tx.auditLog.create({
         data: {
-          userId,
+          userId: user.id,
           action: 'UNPOST',
           entity: 'JournalEntry',
           entityId: updated.id,

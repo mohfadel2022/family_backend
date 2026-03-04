@@ -1,6 +1,9 @@
 import { Router } from 'express';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 import prisma from '../../../infrastructure/database/prisma';
 import { authMiddleware } from '../middlewares/authMiddleware';
+import { checkRole, checkPermission } from '../middlewares/roleMiddleware';
 import { AccountService } from '../../../application/services/AccountService';
 import { PeriodService } from '../../../application/services/PeriodService';
 import { ExchangeReportService } from '../../../application/services/ExchangeReportService';
@@ -10,13 +13,100 @@ const accountService = new AccountService();
 const periodService = new PeriodService();
 const exchangeService = new ExchangeReportService();
 
+// ─── Auth ────────────────────────────────────────────────────────────────────
+router.post('/auth/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    const user = await prisma.user.findUnique({
+      where: { username },
+      include: { role: true }
+    });
+
+    if (!user) {
+      return res.status(401).json({ error: 'اسم المستخدم أو كلمة المرور غير صحيحة' });
+    }
+
+    const isValid = await bcrypt.compare(password, user.password);
+    if (!isValid) {
+      return res.status(401).json({ error: 'اسم المستخدم أو كلمة المرور غير صحيحة' });
+    }
+
+    const token = jwt.sign(
+      { id: user.id, username: user.username, role: user.role?.name || 'GUEST' },
+      process.env.JWT_SECRET || 'secret',
+      { expiresIn: '7d' }
+    );
+
+    res.json({ token, user: { id: user.id, name: user.name, username: user.username, role: user.role?.name || 'GUEST' } });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ─── Audit Logs ──────────────────────────────────────────────────────────────
+router.get('/audit-logs', authMiddleware, checkPermission(['AUDIT_VIEW']), async (req, res) => {
+  try {
+    const logs = await prisma.auditLog.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 100, // Fetch the latest 100 logs
+      include: {
+        user: { select: { name: true, username: true } }
+      }
+    });
+
+    const formattedLogs = logs.map(log => ({
+      id: log.id,
+      user: log.user?.name || log.user?.username || 'النظام',
+      action: log.action,
+      entity: log.entity,
+      entityId: log.entityId,
+      date: new Date(log.createdAt).toLocaleString('en-GB', { hour12: false }),
+      details: log.details || '-'
+    }));
+
+    res.json(formattedLogs);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/audit-logs/bulk-delete', authMiddleware, checkRole(['ADMIN']), async (req: any, res) => {
+  try {
+    const { ids } = req.body;
+    if (!ids || !Array.isArray(ids)) {
+      return res.status(400).json({ error: 'مصفوفة المعرفات مطلوبة' });
+    }
+
+    // Check if user is ADMIN if needed (req.user.role === 'ADMIN')
+    await prisma.auditLog.deleteMany({
+      where: { id: { in: ids } }
+    });
+
+    res.status(204).end();
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.delete('/audit-logs/:id', authMiddleware, checkRole(['ADMIN']), async (req: any, res) => {
+  try {
+    // Check if user is ADMIN if needed (req.user.role === 'ADMIN')
+    await prisma.auditLog.delete({
+      where: { id: req.params.id }
+    });
+    res.status(204).end();
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ─── User Management ─────────────────────────────────────────────────────────
 
 // Get all users
-router.get('/users', authMiddleware, async (req, res) => {
+router.get('/users', authMiddleware, checkPermission(['USERS_VIEW']), async (req, res) => {
   try {
     const users = await prisma.user.findMany({
-      select: { id: true, username: true, name: true, role: true }
+      select: { id: true, username: true, name: true, roleId: true, role: true }
     });
     res.json(users);
   } catch (error: any) {
@@ -25,11 +115,12 @@ router.get('/users', authMiddleware, async (req, res) => {
 });
 
 // Create user
-router.post('/users', authMiddleware, async (req, res) => {
+router.post('/users', authMiddleware, checkPermission(['USERS_CREATE']), async (req, res) => {
   try {
-    const { username, password, name, role } = req.body;
+    const { username, password, name, roleId } = req.body;
+    const hashedPassword = await bcrypt.hash(password, 10);
     const user = await prisma.user.create({
-      data: { username, password, name, role }
+      data: { username, password: hashedPassword, name, roleId }
     });
     const { password: _, ...userWithoutPassword } = user as any;
     res.status(201).json(userWithoutPassword);
@@ -39,11 +130,13 @@ router.post('/users', authMiddleware, async (req, res) => {
 });
 
 // Update user
-router.put('/users/:id', authMiddleware, async (req, res) => {
+router.put('/users/:id', authMiddleware, checkPermission(['USERS_EDIT']), async (req, res) => {
   try {
-    const { username, name, role, password } = req.body;
-    const updateData: any = { username, name, role };
-    if (password) updateData.password = password;
+    const { username, name, roleId, password } = req.body;
+    const updateData: any = { username, name, roleId };
+    if (password) {
+      updateData.password = await bcrypt.hash(password, 10);
+    }
 
     const user = await prisma.user.update({
       where: { id: req.params.id },
@@ -57,7 +150,7 @@ router.put('/users/:id', authMiddleware, async (req, res) => {
 });
 
 // Delete user
-router.delete('/users/:id', authMiddleware, async (req, res) => {
+router.delete('/users/:id', authMiddleware, checkPermission(['USERS_DELETE']), async (req, res) => {
   try {
     await prisma.user.delete({ where: { id: req.params.id } });
     res.json({ message: 'User deleted' });
@@ -73,21 +166,174 @@ router.get('/me', authMiddleware, async (req: any, res) => {
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.user.id },
-      select: { id: true, name: true, username: true, role: true }
+      include: {
+        role: {
+          include: {
+            permissions: { include: { permission: true } }
+          }
+        }
+      }
     });
 
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    res.json(user);
+    res.json({
+      id: user.id,
+      name: user.name,
+      username: user.username,
+      role: user.role?.name || 'GUEST',
+      permissions: user.role?.permissions.map(p => p.permission.code) || []
+    });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
 });
 
+// ─── Roles & Permissions ─────────────────────────────────────────────────────
+
+// Get all roles
+router.get('/roles', authMiddleware, checkPermission(['ROLES_VIEW']), async (req, res) => {
+  try {
+    const roles = await prisma.role.findMany({
+      include: {
+        permissions: { include: { permission: true } },
+        _count: { select: { users: true } }
+      }
+    });
+    res.json(roles);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get all permissions
+router.get('/permissions', authMiddleware, checkPermission(['ROLES_VIEW']), async (req, res) => {
+  try {
+    const perms = await prisma.permission.findMany({
+      orderBy: [
+        { category: 'asc' },
+        { name: 'asc' }
+      ]
+    });
+    res.json(perms);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Create permission
+router.post('/permissions', authMiddleware, checkPermission(['ROLES_MANAGE']), async (req, res) => {
+  try {
+    const { code, name, category, description } = req.body;
+    const perm = await prisma.permission.create({
+      data: { code, name, category, description }
+    });
+    res.status(201).json(perm);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Update permission
+router.put('/permissions/:id', authMiddleware, checkPermission(['ROLES_MANAGE']), async (req, res) => {
+  try {
+    const { code, name, category, description } = req.body;
+    const perm = await prisma.permission.update({
+      where: { id: req.params.id },
+      data: { code, name, category, description }
+    });
+    res.json(perm);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Delete permission
+router.delete('/permissions/:id', authMiddleware, checkPermission(['ROLES_MANAGE']), async (req, res) => {
+  try {
+    await prisma.permission.delete({
+      where: { id: req.params.id }
+    });
+    res.status(204).send();
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Create role
+router.post('/roles', authMiddleware, checkPermission(['ROLES_MANAGE']), async (req, res) => {
+  try {
+    const { name, description, permissionIds } = req.body;
+    const role = await prisma.role.create({
+      data: {
+        name,
+        description,
+        permissions: {
+          create: (permissionIds || []).map((id: string) => ({
+            permissionId: id
+          }))
+        }
+      },
+      include: { permissions: { include: { permission: true } } }
+    });
+    res.status(201).json(role);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Update role
+router.put('/roles/:id', authMiddleware, checkPermission(['ROLES_MANAGE']), async (req, res) => {
+  try {
+    const { name, description, permissionIds } = req.body;
+
+    // Use transaction to sync permissions
+    const role = await prisma.$transaction(async (tx) => {
+      // 1. Delete old links
+      await tx.rolePermission.deleteMany({ where: { roleId: req.params.id } });
+
+      // 2. Update role and create new links
+      return tx.role.update({
+        where: { id: req.params.id },
+        data: {
+          name,
+          description,
+          permissions: {
+            create: (permissionIds || []).map((id: string) => ({
+              permissionId: id
+            }))
+          }
+        },
+        include: { permissions: { include: { permission: true } } }
+      });
+    });
+
+    res.json(role);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Delete role
+router.delete('/roles/:id', authMiddleware, checkPermission(['ROLES_MANAGE']), async (req, res) => {
+  try {
+    // Check if role has users
+    const usersCount = await prisma.user.count({ where: { roleId: req.params.id } });
+    if (usersCount > 0) {
+      return res.status(400).json({ error: 'لا يمكن حذف الدور لوجود مستخدمين مرتبطين به' });
+    }
+
+    await prisma.role.delete({ where: { id: req.params.id } });
+    res.status(204).end();
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
 // Get all currencies
-router.get('/', authMiddleware, async (req, res) => {
+router.get('/currencies', authMiddleware, checkPermission(['CURRENCIES_VIEW']), async (req, res) => {
   try {
     const currencies = await prisma.currency.findMany();
     res.json(currencies);
@@ -97,7 +343,7 @@ router.get('/', authMiddleware, async (req, res) => {
 });
 
 // Get all accounts
-router.get('/accounts', authMiddleware, async (req, res) => {
+router.get('/accounts', authMiddleware, checkPermission(['ACCOUNTS_VIEW']), async (req, res) => {
   try {
     const accounts = await accountService.getAccountsWithBalances();
     res.json(accounts);
@@ -107,7 +353,7 @@ router.get('/accounts', authMiddleware, async (req, res) => {
 });
 
 // Create account
-router.post('/accounts', authMiddleware, async (req, res) => {
+router.post('/accounts', authMiddleware, checkPermission(['ACCOUNTS_CREATE']), async (req, res) => {
   try {
     const account = await accountService.createAccount(req.body);
     res.status(201).json(account);
@@ -117,7 +363,7 @@ router.post('/accounts', authMiddleware, async (req, res) => {
 });
 
 // Update account
-router.put('/accounts/:id', authMiddleware, async (req, res) => {
+router.put('/accounts/:id', authMiddleware, checkPermission(['ACCOUNTS_EDIT']), async (req, res) => {
   try {
     const account = await accountService.updateAccount(req.params.id, req.body);
     res.json(account);
@@ -127,7 +373,7 @@ router.put('/accounts/:id', authMiddleware, async (req, res) => {
 });
 
 // Delete account
-router.delete('/accounts/:id', authMiddleware, async (req, res) => {
+router.delete('/accounts/:id', authMiddleware, checkPermission(['ACCOUNTS_DELETE']), async (req, res) => {
   try {
     const result = await accountService.deleteAccount(req.params.id);
     res.json(result);
@@ -137,7 +383,7 @@ router.delete('/accounts/:id', authMiddleware, async (req, res) => {
 });
 
 // Get all branches
-router.get('/branches', authMiddleware, async (req, res) => {
+router.get('/branches', authMiddleware, checkPermission(['ENTITIES_VIEW']), async (req, res) => {
   try {
     const branches = await prisma.branch.findMany({
       include: { currency: true, users: { select: { id: true, name: true } } }
@@ -149,7 +395,7 @@ router.get('/branches', authMiddleware, async (req, res) => {
 });
 
 // Create branch
-router.post('/branches', authMiddleware, async (req, res) => {
+router.post('/branches', authMiddleware, checkPermission(['ENTITIES_CREATE']), async (req, res) => {
   try {
     const branch = await prisma.branch.create({ data: req.body });
     res.status(201).json(branch);
@@ -159,7 +405,7 @@ router.post('/branches', authMiddleware, async (req, res) => {
 });
 
 // Update branch
-router.put('/branches/:id', authMiddleware, async (req, res) => {
+router.put('/branches/:id', authMiddleware, checkPermission(['ENTITIES_EDIT']), async (req, res) => {
   try {
     const branch = await prisma.branch.update({
       where: { id: req.params.id },
@@ -172,7 +418,7 @@ router.put('/branches/:id', authMiddleware, async (req, res) => {
 });
 
 // Delete branch
-router.delete('/branches/:id', authMiddleware, async (req, res) => {
+router.delete('/branches/:id', authMiddleware, checkPermission(['ENTITIES_DELETE']), async (req, res) => {
   try {
     // Check if branch has accounts
     const accountsCount = await prisma.account.count({
@@ -200,7 +446,7 @@ router.delete('/branches/:id', authMiddleware, async (req, res) => {
 });
 
 // Currencies CRUD
-router.post('/currencies', authMiddleware, async (req, res) => {
+router.post('/currencies', authMiddleware, checkPermission(['CURRENCIES_MANAGE']), async (req, res) => {
   try {
     const { isBase } = req.body;
 
@@ -230,7 +476,7 @@ router.post('/currencies', authMiddleware, async (req, res) => {
   }
 });
 
-router.put('/currencies/:id', authMiddleware, async (req, res) => {
+router.put('/currencies/:id', authMiddleware, checkPermission(['CURRENCIES_MANAGE']), async (req, res) => {
   try {
     const { isBase } = req.body;
 
@@ -335,7 +581,7 @@ router.get('/currencies/:id/rate-at', authMiddleware, async (req, res) => {
   }
 });
 
-router.delete('/currencies/:id', authMiddleware, async (req, res) => {
+router.delete('/currencies/:id', authMiddleware, checkPermission(['CURRENCIES_MANAGE']), async (req, res) => {
   try {
     // Check if currency is used in accounts, branches or journal lines
     const [accountsCount, branchesCount, linesCount] = await Promise.all([
@@ -409,7 +655,7 @@ router.get('/reports/exchange-report', authMiddleware, async (req, res) => {
 });
 
 // Periods
-router.get('/periods', authMiddleware, async (req, res) => {
+router.get('/periods', authMiddleware, checkPermission(['PERIODS_VIEW']), async (req, res) => {
   try {
     const periods = await periodService.getAllPeriods();
     res.json(periods);
@@ -418,7 +664,7 @@ router.get('/periods', authMiddleware, async (req, res) => {
   }
 });
 
-router.post('/periods', authMiddleware, async (req, res) => {
+router.post('/periods', authMiddleware, checkPermission(['PERIODS_MANAGE']), async (req, res) => {
   try {
     const { name, startDate, endDate } = req.body;
     const period = await periodService.createPeriod(name, new Date(startDate), new Date(endDate));
@@ -428,7 +674,7 @@ router.post('/periods', authMiddleware, async (req, res) => {
   }
 });
 
-router.post('/periods/:id/toggle-lock', authMiddleware, async (req, res) => {
+router.post('/periods/:id/toggle-lock', authMiddleware, checkPermission(['PERIODS_MANAGE']), async (req, res) => {
   try {
     const period = await periodService.toggleLock(req.params.id);
     res.json(period);
@@ -438,7 +684,7 @@ router.post('/periods/:id/toggle-lock', authMiddleware, async (req, res) => {
 });
 
 // ─── BACKUP — Export all data as JSON ────────────────────────────────────────
-router.get('/backup', authMiddleware, async (req, res) => {
+router.get('/backup', authMiddleware, checkPermission(['DB_BACKUP']), async (req, res) => {
   try {
     const [currencies, branches, accounts, periods, journalEntries, journalLines, users] = await Promise.all([
       prisma.currency.findMany(),
@@ -447,7 +693,7 @@ router.get('/backup', authMiddleware, async (req, res) => {
       prisma.period.findMany(),
       prisma.journalEntry.findMany(),
       prisma.journalLine.findMany(),
-      prisma.user.findMany({ select: { id: true, username: true, name: true, role: true } }),
+      prisma.user.findMany({ select: { id: true, username: true, name: true, roleId: true } }),
     ]);
 
     const backup = {
@@ -465,7 +711,7 @@ router.get('/backup', authMiddleware, async (req, res) => {
 });
 
 // ─── RESTORE — Import JSON backup ────────────────────────────────────────────
-router.post('/restore', authMiddleware, async (req, res) => {
+router.post('/restore', authMiddleware, checkPermission(['DB_BACKUP']), async (req, res) => {
   try {
     const { data } = req.body;
     if (!data || !data.currencies) {
@@ -527,7 +773,7 @@ router.post('/restore', authMiddleware, async (req, res) => {
 // ─── RESET ALL DATA ──────────────────────────────────────────────────────────
 // Deletes ALL financial data AND non-ADMIN users, in FK-safe order.
 // The ADMIN user is always preserved.
-router.delete('/reset-all', authMiddleware, async (req, res) => {
+router.delete('/reset-all', authMiddleware, checkPermission(['DB_RESET']), async (req, res) => {
   try {
     // 1. Delete all journal lines first (no FK dependencies)
     await prisma.journalLine.deleteMany({});
@@ -552,7 +798,7 @@ router.delete('/reset-all', authMiddleware, async (req, res) => {
 
     // 8. Delete non-ADMIN users (keep the admin account)
     await prisma.user.deleteMany({
-      where: { role: { not: 'ADMIN' } }
+      where: { role: { name: { not: 'ADMIN' } } }
     });
 
     res.json({

@@ -101,6 +101,11 @@ model Member {
   stoppedAt       DateTime?
   createdAt       DateTime     @default(now())
 
+  phone          String?
+  managerId      String?
+  manager        Member?  @relation("MemberManager", fields: [managerId], references: [id]) // Encargado
+  managedMembers Member[] @relation("MemberManager") // Miembros a su cargo
+
   subscriptions               MemberSubscription[]
   subscriptionCollectionItems SubscriptionCollectionItem[]
 }
@@ -151,6 +156,18 @@ model JournalEntry {
   lines                  JournalLine[]
   memberSubscriptions    MemberSubscription[]
   subscriptionCollection SubscriptionCollection?
+  attachments            Attachment[]
+}
+
+model Attachment {
+  id             String       @id @default(uuid())
+  fileName       String
+  fileUrl        String
+  fileType       String?
+  fileSize       Int?
+  journalEntryId String
+  journalEntry   JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
 }
 
 model JournalLine {
@@ -170,17 +187,47 @@ model JournalLine {
   baseCredit Decimal @default(0)
 }
 
+model Role {
+  id          String           @id @default(uuid())
+  name        String           @unique // ADMIN, RESPONSIBLE, ENCARGADO, etc.
+  description String?
+  permissions RolePermission[]
+  users       User[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+}
+
+model Permission {
+  id          String           @id @default(uuid())
+  code        String           @unique // e.g., 'MANAGE_USERS', 'VIEW_JOURNALS'
+  name        String
+  category    String           @default("GENERAL")
+  description String?
+  roles       RolePermission[]
+}
+
+model RolePermission {
+  roleId       String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permissionId String
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
 model User {
   id                      String                   @id @default(uuid())
   username                String                   @unique
   password                String
   name                    String?
-  role                    String                   @default("USER")
+  roleId                  String?
+  role                    Role?                    @relation(fields: [roleId], references: [id])
   journalEntries          JournalEntry[]
   auditLogs               AuditLog[]
   branches                Branch[]                 @relation("BranchUsers")
   entities                Entity[]
   subscriptionCollections SubscriptionCollection[]
+  importReports           ImportReport[]
 }
 
 model AuditLog {
@@ -234,4 +281,17 @@ model SubscriptionCollectionItem {
   member       Member                 @relation(fields: [memberId], references: [id])
   year         Int
   amount       Decimal
+}
+
+model ImportReport {
+  id            String   @id @default(uuid())
+  filename      String
+  date          DateTime @default(now())
+  totalRecords  Int
+  importedCount Int
+  errorsCount   Int
+  errorsDetails Json?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
 }
