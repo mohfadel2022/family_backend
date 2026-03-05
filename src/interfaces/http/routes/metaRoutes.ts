@@ -686,7 +686,11 @@ router.post('/periods/:id/toggle-lock', authMiddleware, checkPermission(['PERIOD
 // ─── BACKUP — Export all data as JSON ────────────────────────────────────────
 router.get('/backup', authMiddleware, checkPermission(['DB_BACKUP']), async (req, res) => {
   try {
-    const [currencies, branches, accounts, periods, journalEntries, journalLines, users] = await Promise.all([
+    const [
+      currencies, branches, accounts, periods, journalEntries, journalLines, users,
+      roles, permissions, rolePermissions, entities, members, memberSubscriptions,
+      attachments, subscriptionCollections, subscriptionCollectionItems, importReports
+    ] = await Promise.all([
       prisma.currency.findMany(),
       prisma.branch.findMany(),
       prisma.account.findMany(),
@@ -694,12 +698,26 @@ router.get('/backup', authMiddleware, checkPermission(['DB_BACKUP']), async (req
       prisma.journalEntry.findMany(),
       prisma.journalLine.findMany(),
       prisma.user.findMany({ select: { id: true, username: true, name: true, roleId: true } }),
+      prisma.role.findMany(),
+      prisma.permission.findMany(),
+      prisma.rolePermission.findMany(),
+      prisma.entity.findMany(),
+      prisma.member.findMany(),
+      prisma.memberSubscription.findMany(),
+      prisma.attachment.findMany(),
+      prisma.subscriptionCollection.findMany(),
+      prisma.subscriptionCollectionItem.findMany(),
+      prisma.importReport.findMany(),
     ]);
 
     const backup = {
-      version: '1.0',
+      version: '1.1',
       exportedAt: new Date().toISOString(),
-      data: { currencies, branches, accounts, periods, journalEntries, journalLines, users }
+      data: {
+        currencies, branches, accounts, periods, journalEntries, journalLines, users,
+        roles, permissions, rolePermissions, entities, members, memberSubscriptions,
+        attachments, subscriptionCollections, subscriptionCollectionItems, importReports
+      }
     };
 
     res.setHeader('Content-Type', 'application/json');
@@ -718,18 +736,48 @@ router.post('/restore', authMiddleware, checkPermission(['DB_BACKUP']), async (r
       return res.status(400).json({ error: 'ملف النسخ الاحتياطي غير صالح أو تالف.' });
     }
 
-    // Clear in FK-safe order
+    // Clear in FK-safe order (leaves to roots)
+    await prisma.subscriptionCollectionItem.deleteMany({});
+    await prisma.subscriptionCollection.deleteMany({});
+    await prisma.memberSubscription.deleteMany({});
+    await prisma.member.deleteMany({});
+    await prisma.entity.deleteMany({});
+    await prisma.attachment.deleteMany({});
     await prisma.journalLine.deleteMany({});
     await prisma.journalEntry.deleteMany({});
     await prisma.auditLog.deleteMany({});
+    await prisma.importReport.deleteMany({});
     await prisma.account.deleteMany({});
     await prisma.period.deleteMany({});
+    await prisma.currencyRateHistory.deleteMany({});
     await prisma.branch.deleteMany({});
     await prisma.currency.deleteMany({});
 
     // Re-insert in dependency order
     if (data.currencies?.length) await prisma.currency.createMany({ data: data.currencies });
     if (data.branches?.length) await prisma.branch.createMany({ data: data.branches });
+
+    // Entities (must be after branches/currencies)
+    if (data.entities?.length) await prisma.entity.createMany({ data: data.entities });
+
+    // Members (must be after entities)
+    if (data.members?.length) {
+      // Members can have hierarchy (managerId), so we use the same pass-based logic as accounts
+      const inserted = new Set<string>();
+      const remaining = [...data.members];
+      let passes = 0;
+      while (remaining.length > 0 && passes < 30) {
+        passes++;
+        for (let i = remaining.length - 1; i >= 0; i--) {
+          const item = remaining[i];
+          if (!item.managerId || inserted.has(item.managerId)) {
+            await prisma.member.create({ data: item });
+            inserted.add(item.id);
+            remaining.splice(i, 1);
+          }
+        }
+      }
+    }
 
     // Accounts: topological sort — parents before children
     if (data.accounts?.length) {
@@ -752,6 +800,12 @@ router.post('/restore', authMiddleware, checkPermission(['DB_BACKUP']), async (r
     if (data.periods?.length) await prisma.period.createMany({ data: data.periods });
     if (data.journalEntries?.length) await prisma.journalEntry.createMany({ data: data.journalEntries });
     if (data.journalLines?.length) await prisma.journalLine.createMany({ data: data.journalLines });
+    if (data.memberSubscriptions?.length) await prisma.memberSubscription.createMany({ data: data.memberSubscriptions });
+    if (data.attachments?.length) await prisma.attachment.createMany({ data: data.attachments });
+
+    // Subscription Collections
+    if (data.subscriptionCollections?.length) await prisma.subscriptionCollection.createMany({ data: data.subscriptionCollections });
+    if (data.subscriptionCollectionItems?.length) await prisma.subscriptionCollectionItem.createMany({ data: data.subscriptionCollectionItems });
 
     res.json({
       success: true,
@@ -775,25 +829,21 @@ router.post('/restore', authMiddleware, checkPermission(['DB_BACKUP']), async (r
 // The ADMIN user is always preserved.
 router.delete('/reset-all', authMiddleware, checkPermission(['DB_RESET']), async (req, res) => {
   try {
-    // 1. Delete all journal lines first (no FK dependencies)
+    // Clear in FK-safe order (leaves to roots)
+    await prisma.subscriptionCollectionItem.deleteMany({});
+    await prisma.subscriptionCollection.deleteMany({});
+    await prisma.memberSubscription.deleteMany({});
+    await prisma.member.deleteMany({});
+    await prisma.entity.deleteMany({});
+    await prisma.attachment.deleteMany({});
     await prisma.journalLine.deleteMany({});
-
-    // 2. Delete all journal entries (FK: branch, user)
     await prisma.journalEntry.deleteMany({});
-
-    // 3. Delete all audit logs (FK: user) — needed before deleting non-admin users
     await prisma.auditLog.deleteMany({});
-
-    // 4. Delete all accounts (FK: branch, currency)
+    await prisma.importReport.deleteMany({});
     await prisma.account.deleteMany({});
-
-    // 5. Delete all accounting periods
     await prisma.period.deleteMany({});
-
-    // 6. Delete all branches (FK: currency)
+    await prisma.currencyRateHistory.deleteMany({});
     await prisma.branch.deleteMany({});
-
-    // 7. Delete all currencies
     await prisma.currency.deleteMany({});
 
     // 8. Delete non-ADMIN users (keep the admin account)
