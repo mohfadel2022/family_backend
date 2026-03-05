@@ -10,10 +10,7 @@
     "prisma:generate": "npx prisma generate",
     "prisma:migrate": "npx prisma migrate dev",
     "test": "jest",
-    "postinstall": "npx prisma generate"
-  },
-  "engines": {
-    "node": ">=20.0.0"
+    "postinstall": "chmod +x node_modules/.bin/prisma && npx prisma generate"
   },
   "keywords": [],
   "author": "",
