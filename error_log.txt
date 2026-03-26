@@ -1,0 +1,474 @@
+[2026-03-21T18:16:56.734Z] DELETE /reset-all - ERROR: 
+Invalid `prisma.user.deleteMany()` invocation in
+D:\QwenCoder\familiy2\backend\src\interfaces\http\routes\metaRoutes.ts:1742:23
+
+  1739 }
+  1740 
+  1741 // 8. Delete non-ADMIN users (keep the admin account)
+→ 1742 await prisma.user.deleteMany(
+Foreign key constraint violated on the foreign key
+STACK: PrismaClientKnownRequestError: 
+Invalid `prisma.user.deleteMany()` invocation in
+D:\QwenCoder\familiy2\backend\src\interfaces\http\routes\metaRoutes.ts:1742:23
+
+  1739 }
+  1740 
+  1741 // 8. Delete non-ADMIN users (keep the admin account)
+→ 1742 await prisma.user.deleteMany(
+Foreign key constraint violated on the foreign key
+    at zr.handleRequestError (D:\QwenCoder\familiy2\backend\node_modules\@prisma\client\src\runtime\RequestHandler.ts:237:13)
+    at zr.handleAndLogRequestError (D:\QwenCoder\familiy2\backend\node_modules\@prisma\client\src\runtime\RequestHandler.ts:183:12)
+    at zr.request (D:\QwenCoder\familiy2\backend\node_modules\@prisma\client\src\runtime\RequestHandler.ts:152:12)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at a (D:\QwenCoder\familiy2\backend\node_modules\@prisma\client\src\runtime\getPrismaClient.ts:808:24)
+    at D:\QwenCoder\familiy2\backend\src\interfaces\http\routes\metaRoutes.ts:1742:5
+
+[2026-03-21T18:17:05.081Z] DELETE /reset-all - ERROR: 
+Invalid `prisma.user.deleteMany()` invocation in
+D:\QwenCoder\familiy2\backend\src\interfaces\http\routes\metaRoutes.ts:1742:23
+
+  1739 }
+  1740 
+  1741 // 8. Delete non-ADMIN users (keep the admin account)
+→ 1742 await prisma.user.deleteMany(
+Foreign key constraint violated on the foreign key
+STACK: PrismaClientKnownRequestError: 
+Invalid `prisma.user.deleteMany()` invocation in
+D:\QwenCoder\familiy2\backend\src\interfaces\http\routes\metaRoutes.ts:1742:23
+
+  1739 }
+  1740 
+  1741 // 8. Delete non-ADMIN users (keep the admin account)
+→ 1742 await prisma.user.deleteMany(
+Foreign key constraint violated on the foreign key
+    at zr.handleRequestError (D:\QwenCoder\familiy2\backend\node_modules\@prisma\client\src\runtime\RequestHandler.ts:237:13)
+    at zr.handleAndLogRequestError (D:\QwenCoder\familiy2\backend\node_modules\@prisma\client\src\runtime\RequestHandler.ts:183:12)
+    at zr.request (D:\QwenCoder\familiy2\backend\node_modules\@prisma\client\src\runtime\RequestHandler.ts:152:12)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at a (D:\QwenCoder\familiy2\backend\node_modules\@prisma\client\src\runtime\getPrismaClient.ts:808:24)
+    at D:\QwenCoder\familiy2\backend\src\interfaces\http\routes\metaRoutes.ts:1742:5
+
+[2026-03-21T18:17:11.070Z] DELETE /reset-all - ERROR: 
+Invalid `prisma.user.deleteMany()` invocation in
+D:\QwenCoder\familiy2\backend\src\interfaces\http\routes\metaRoutes.ts:1742:23
+
+  1739 }
+  1740 
+  1741 // 8. Delete non-ADMIN users (keep the admin account)
+→ 1742 await prisma.user.deleteMany(
+Foreign key constraint violated on the foreign key
+STACK: PrismaClientKnownRequestError: 
+Invalid `prisma.user.deleteMany()` invocation in
+D:\QwenCoder\familiy2\backend\src\interfaces\http\routes\metaRoutes.ts:1742:23
+
+  1739 }
+  1740 
+  1741 // 8. Delete non-ADMIN users (keep the admin account)
+→ 1742 await prisma.user.deleteMany(
+Foreign key constraint violated on the foreign key
+    at zr.handleRequestError (D:\QwenCoder\familiy2\backend\node_modules\@prisma\client\src\runtime\RequestHandler.ts:237:13)
+    at zr.handleAndLogRequestError (D:\QwenCoder\familiy2\backend\node_modules\@prisma\client\src\runtime\RequestHandler.ts:183:12)
+    at zr.request (D:\QwenCoder\familiy2\backend\node_modules\@prisma\client\src\runtime\RequestHandler.ts:152:12)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at a (D:\QwenCoder\familiy2\backend\node_modules\@prisma\client\src\runtime\getPrismaClient.ts:808:24)
+    at D:\QwenCoder\familiy2\backend\src\interfaces\http\routes\metaRoutes.ts:1742:5
+
+[2026-03-21T18:17:16.950Z] DELETE /reset-all - ERROR: 
+Invalid `prisma.user.deleteMany()` invocation in
+D:\QwenCoder\familiy2\backend\src\interfaces\http\routes\metaRoutes.ts:1742:23
+
+  1739 }
+  1740 
+  1741 // 8. Delete non-ADMIN users (keep the admin account)
+→ 1742 await prisma.user.deleteMany(
+Foreign key constraint violated on the foreign key
+STACK: PrismaClientKnownRequestError: 
+Invalid `prisma.user.deleteMany()` invocation in
+D:\QwenCoder\familiy2\backend\src\interfaces\http\routes\metaRoutes.ts:1742:23
+
+  1739 }
+  1740 
+  1741 // 8. Delete non-ADMIN users (keep the admin account)
+→ 1742 await prisma.user.deleteMany(
+Foreign key constraint violated on the foreign key
+    at zr.handleRequestError (D:\QwenCoder\familiy2\backend\node_modules\@prisma\client\src\runtime\RequestHandler.ts:237:13)
+    at zr.handleAndLogRequestError (D:\QwenCoder\familiy2\backend\node_modules\@prisma\client\src\runtime\RequestHandler.ts:183:12)
+    at zr.request (D:\QwenCoder\familiy2\backend\node_modules\@prisma\client\src\runtime\RequestHandler.ts:152:12)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at a (D:\QwenCoder\familiy2\backend\node_modules\@prisma\client\src\runtime\getPrismaClient.ts:808:24)
+    at D:\QwenCoder\familiy2\backend\src\interfaces\http\routes\metaRoutes.ts:1742:5
+
+[2026-03-21T19:16:20.129Z] PUT /branches/ca0b60a6-313d-4951-a889-c76342fa362e - ERROR: 
+Invalid `prisma.branch.update()` invocation in
+D:\QwenCoder\familiy2\backend\src\interfaces\http\routes\metaRoutes.ts:753:40
+
+  750 // Update branch
+  751 router.put('/branches/:id', authMiddleware, checkPermission(['ENTITIES_EDIT']), async (req, res) => {
+  752   try {
+→ 753     const branch = await prisma.branch.update({
+            where: {
+              id: "ca0b60a6-313d-4951-a889-c76342fa362e"
+            },
+            data: {
+              id: "ca0b60a6-313d-4951-a889-c76342fa362e",
+              name: "الفرع الرئيسي",
+              code: "MAIN",
+              currencyId: "961cdbd6-191a-42a6-9a5f-144bb0c8a572",
+              ~~~~~~~~~~
+              currency: {
+                id: "961cdbd6-191a-42a6-9a5f-144bb0c8a572",
+                code: "ِDZD",
+                name: "الدينار",
+                symbol: "د.ج",
+                isBase: true,
+                exchangeRate: "1"
+              },
+              users: [],
+          ?   accounts?: AccountUpdateManyWithoutBranchNestedInput,
+          ?   journalEntries?: JournalEntryUpdateManyWithoutBranchNestedInput,
+          ?   entities?: EntityUpdateManyWithoutBranchNestedInput
+            }
+          })
+
+Unknown argument `currencyId`. Did you mean `currency`? Available options are marked with ?.
+STACK: PrismaClientValidationError: 
+Invalid `prisma.branch.update()` invocation in
+D:\QwenCoder\familiy2\backend\src\interfaces\http\routes\metaRoutes.ts:753:40
+
+  750 // Update branch
+  751 router.put('/branches/:id', authMiddleware, checkPermission(['ENTITIES_EDIT']), async (req, res) => {
+  752   try {
+→ 753     const branch = await prisma.branch.update({
+            where: {
+              id: "ca0b60a6-313d-4951-a889-c76342fa362e"
+            },
+            data: {
+              id: "ca0b60a6-313d-4951-a889-c76342fa362e",
+              name: "الفرع الرئيسي",
+              code: "MAIN",
+              currencyId: "961cdbd6-191a-42a6-9a5f-144bb0c8a572",
+              ~~~~~~~~~~
+              currency: {
+                id: "961cdbd6-191a-42a6-9a5f-144bb0c8a572",
+                code: "ِDZD",
+                name: "الدينار",
+                symbol: "د.ج",
+                isBase: true,
+                exchangeRate: "1"
+              },
+              users: [],
+          ?   accounts?: AccountUpdateManyWithoutBranchNestedInput,
+          ?   journalEntries?: JournalEntryUpdateManyWithoutBranchNestedInput,
+          ?   entities?: EntityUpdateManyWithoutBranchNestedInput
+            }
+          })
+
+Unknown argument `currencyId`. Did you mean `currency`? Available options are marked with ?.
+    at throwValidationException (D:\QwenCoder\familiy2\backend\node_modules\@prisma\client\src\runtime\core\errorRendering\throwValidationException.ts:46:9)
+    at zr.handleRequestError (D:\QwenCoder\familiy2\backend\node_modules\@prisma\client\src\runtime\RequestHandler.ts:211:7)
+    at zr.handleAndLogRequestError (D:\QwenCoder\familiy2\backend\node_modules\@prisma\client\src\runtime\RequestHandler.ts:183:12)
+    at zr.request (D:\QwenCoder\familiy2\backend\node_modules\@prisma\client\src\runtime\RequestHandler.ts:152:12)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at a (D:\QwenCoder\familiy2\backend\node_modules\@prisma\client\src\runtime\getPrismaClient.ts:808:24)
+    at D:\QwenCoder\familiy2\backend\src\interfaces\http\routes\metaRoutes.ts:753:20
+
+[2026-03-21T19:16:31.331Z] PUT /branches/ca0b60a6-313d-4951-a889-c76342fa362e - ERROR: 
+Invalid `prisma.branch.update()` invocation in
+D:\QwenCoder\familiy2\backend\src\interfaces\http\routes\metaRoutes.ts:753:40
+
+  750 // Update branch
+  751 router.put('/branches/:id', authMiddleware, checkPermission(['ENTITIES_EDIT']), async (req, res) => {
+  752   try {
+→ 753     const branch = await prisma.branch.update({
+            where: {
+              id: "ca0b60a6-313d-4951-a889-c76342fa362e"
+            },
+            data: {
+              id: "ca0b60a6-313d-4951-a889-c76342fa362e",
+              name: "الفرع الرئيسي",
+              code: "MAIN",
+              currencyId: "961cdbd6-191a-42a6-9a5f-144bb0c8a572",
+              ~~~~~~~~~~
+              currency: {
+                id: "961cdbd6-191a-42a6-9a5f-144bb0c8a572",
+                code: "ِDZD",
+                name: "الدينار",
+                symbol: "د.ج",
+                isBase: true,
+                exchangeRate: "1"
+              },
+              users: [],
+          ?   accounts?: AccountUpdateManyWithoutBranchNestedInput,
+          ?   journalEntries?: JournalEntryUpdateManyWithoutBranchNestedInput,
+          ?   entities?: EntityUpdateManyWithoutBranchNestedInput
+            }
+          })
+
+Unknown argument `currencyId`. Did you mean `currency`? Available options are marked with ?.
+STACK: PrismaClientValidationError: 
+Invalid `prisma.branch.update()` invocation in
+D:\QwenCoder\familiy2\backend\src\interfaces\http\routes\metaRoutes.ts:753:40
+
+  750 // Update branch
+  751 router.put('/branches/:id', authMiddleware, checkPermission(['ENTITIES_EDIT']), async (req, res) => {
+  752   try {
+→ 753     const branch = await prisma.branch.update({
+            where: {
+              id: "ca0b60a6-313d-4951-a889-c76342fa362e"
+            },
+            data: {
+              id: "ca0b60a6-313d-4951-a889-c76342fa362e",
+              name: "الفرع الرئيسي",
+              code: "MAIN",
+              currencyId: "961cdbd6-191a-42a6-9a5f-144bb0c8a572",
+              ~~~~~~~~~~
+              currency: {
+                id: "961cdbd6-191a-42a6-9a5f-144bb0c8a572",
+                code: "ِDZD",
+                name: "الدينار",
+                symbol: "د.ج",
+                isBase: true,
+                exchangeRate: "1"
+              },
+              users: [],
+          ?   accounts?: AccountUpdateManyWithoutBranchNestedInput,
+          ?   journalEntries?: JournalEntryUpdateManyWithoutBranchNestedInput,
+          ?   entities?: EntityUpdateManyWithoutBranchNestedInput
+            }
+          })
+
+Unknown argument `currencyId`. Did you mean `currency`? Available options are marked with ?.
+    at throwValidationException (D:\QwenCoder\familiy2\backend\node_modules\@prisma\client\src\runtime\core\errorRendering\throwValidationException.ts:46:9)
+    at zr.handleRequestError (D:\QwenCoder\familiy2\backend\node_modules\@prisma\client\src\runtime\RequestHandler.ts:211:7)
+    at zr.handleAndLogRequestError (D:\QwenCoder\familiy2\backend\node_modules\@prisma\client\src\runtime\RequestHandler.ts:183:12)
+    at zr.request (D:\QwenCoder\familiy2\backend\node_modules\@prisma\client\src\runtime\RequestHandler.ts:152:12)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at a (D:\QwenCoder\familiy2\backend\node_modules\@prisma\client\src\runtime\getPrismaClient.ts:808:24)
+    at D:\QwenCoder\familiy2\backend\src\interfaces\http\routes\metaRoutes.ts:753:20
+
+[2026-03-21T19:16:47.753Z] PUT /branches/ca0b60a6-313d-4951-a889-c76342fa362e - ERROR: 
+Invalid `prisma.branch.update()` invocation in
+D:\QwenCoder\familiy2\backend\src\interfaces\http\routes\metaRoutes.ts:753:40
+
+  750 // Update branch
+  751 router.put('/branches/:id', authMiddleware, checkPermission(['ENTITIES_EDIT']), async (req, res) => {
+  752   try {
+→ 753     const branch = await prisma.branch.update({
+            where: {
+              id: "ca0b60a6-313d-4951-a889-c76342fa362e"
+            },
+            data: {
+              id: "ca0b60a6-313d-4951-a889-c76342fa362e",
+              name: "الفرع الرئيسي",
+              code: "MAIN",
+              currencyId: "b73659b2-745b-46b0-9e87-0a03af4575d3",
+              ~~~~~~~~~~
+              currency: {
+                id: "961cdbd6-191a-42a6-9a5f-144bb0c8a572",
+                code: "ِDZD",
+                name: "الدينار",
+                symbol: "د.ج",
+                isBase: true,
+                exchangeRate: "1"
+              },
+              users: [],
+          ?   accounts?: AccountUpdateManyWithoutBranchNestedInput,
+          ?   journalEntries?: JournalEntryUpdateManyWithoutBranchNestedInput,
+          ?   entities?: EntityUpdateManyWithoutBranchNestedInput
+            }
+          })
+
+Unknown argument `currencyId`. Did you mean `currency`? Available options are marked with ?.
+STACK: PrismaClientValidationError: 
+Invalid `prisma.branch.update()` invocation in
+D:\QwenCoder\familiy2\backend\src\interfaces\http\routes\metaRoutes.ts:753:40
+
+  750 // Update branch
+  751 router.put('/branches/:id', authMiddleware, checkPermission(['ENTITIES_EDIT']), async (req, res) => {
+  752   try {
+→ 753     const branch = await prisma.branch.update({
+            where: {
+              id: "ca0b60a6-313d-4951-a889-c76342fa362e"
+            },
+            data: {
+              id: "ca0b60a6-313d-4951-a889-c76342fa362e",
+              name: "الفرع الرئيسي",
+              code: "MAIN",
+              currencyId: "b73659b2-745b-46b0-9e87-0a03af4575d3",
+              ~~~~~~~~~~
+              currency: {
+                id: "961cdbd6-191a-42a6-9a5f-144bb0c8a572",
+                code: "ِDZD",
+                name: "الدينار",
+                symbol: "د.ج",
+                isBase: true,
+                exchangeRate: "1"
+              },
+              users: [],
+          ?   accounts?: AccountUpdateManyWithoutBranchNestedInput,
+          ?   journalEntries?: JournalEntryUpdateManyWithoutBranchNestedInput,
+          ?   entities?: EntityUpdateManyWithoutBranchNestedInput
+            }
+          })
+
+Unknown argument `currencyId`. Did you mean `currency`? Available options are marked with ?.
+    at throwValidationException (D:\QwenCoder\familiy2\backend\node_modules\@prisma\client\src\runtime\core\errorRendering\throwValidationException.ts:46:9)
+    at zr.handleRequestError (D:\QwenCoder\familiy2\backend\node_modules\@prisma\client\src\runtime\RequestHandler.ts:211:7)
+    at zr.handleAndLogRequestError (D:\QwenCoder\familiy2\backend\node_modules\@prisma\client\src\runtime\RequestHandler.ts:183:12)
+    at zr.request (D:\QwenCoder\familiy2\backend\node_modules\@prisma\client\src\runtime\RequestHandler.ts:152:12)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at a (D:\QwenCoder\familiy2\backend\node_modules\@prisma\client\src\runtime\getPrismaClient.ts:808:24)
+    at D:\QwenCoder\familiy2\backend\src\interfaces\http\routes\metaRoutes.ts:753:20
+
+[2026-03-21T19:25:43.240Z] PUT /branches/ca0b60a6-313d-4951-a889-c76342fa362e - ERROR: 
+Invalid `prisma.branch.update()` invocation in
+D:\QwenCoder\familiy2\backend\src\interfaces\http\routes\metaRoutes.ts:757:40
+
+  754 router.put('/branches/:id', authMiddleware, checkPermission(['ENTITIES_EDIT']), async (req, res) => {
+  755   try {
+  756     const { currency, id, ...updateData } = req.body;
+→ 757     const branch = await prisma.branch.update({
+            where: {
+              id: "ca0b60a6-313d-4951-a889-c76342fa362e"
+            },
+            data: {
+              name: "الفرع الرئيسي",
+              code: "MAIN",
+              currencyId: "b73659b2-745b-46b0-9e87-0a03af4575d3",
+              users: []
+                     ~~
+            }
+          })
+
+Argument `users`: Invalid value provided. Expected UserUncheckedUpdateManyWithoutBranchesNestedInput, provided ().
+STACK: PrismaClientValidationError: 
+Invalid `prisma.branch.update()` invocation in
+D:\QwenCoder\familiy2\backend\src\interfaces\http\routes\metaRoutes.ts:757:40
+
+  754 router.put('/branches/:id', authMiddleware, checkPermission(['ENTITIES_EDIT']), async (req, res) => {
+  755   try {
+  756     const { currency, id, ...updateData } = req.body;
+→ 757     const branch = await prisma.branch.update({
+            where: {
+              id: "ca0b60a6-313d-4951-a889-c76342fa362e"
+            },
+            data: {
+              name: "الفرع الرئيسي",
+              code: "MAIN",
+              currencyId: "b73659b2-745b-46b0-9e87-0a03af4575d3",
+              users: []
+                     ~~
+            }
+          })
+
+Argument `users`: Invalid value provided. Expected UserUncheckedUpdateManyWithoutBranchesNestedInput, provided ().
+    at throwValidationException (D:\QwenCoder\familiy2\backend\node_modules\@prisma\client\src\runtime\core\errorRendering\throwValidationException.ts:46:9)
+    at zr.handleRequestError (D:\QwenCoder\familiy2\backend\node_modules\@prisma\client\src\runtime\RequestHandler.ts:211:7)
+    at zr.handleAndLogRequestError (D:\QwenCoder\familiy2\backend\node_modules\@prisma\client\src\runtime\RequestHandler.ts:183:12)
+    at zr.request (D:\QwenCoder\familiy2\backend\node_modules\@prisma\client\src\runtime\RequestHandler.ts:152:12)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at a (D:\QwenCoder\familiy2\backend\node_modules\@prisma\client\src\runtime\getPrismaClient.ts:808:24)
+    at D:\QwenCoder\familiy2\backend\src\interfaces\http\routes\metaRoutes.ts:757:20
+
+[2026-03-21T19:26:15.513Z] PUT /branches/ca0b60a6-313d-4951-a889-c76342fa362e - ERROR: 
+Invalid `prisma.branch.update()` invocation in
+D:\QwenCoder\familiy2\backend\src\interfaces\http\routes\metaRoutes.ts:757:40
+
+  754 router.put('/branches/:id', authMiddleware, checkPermission(['ENTITIES_EDIT']), async (req, res) => {
+  755   try {
+  756     const { currency, id, ...updateData } = req.body;
+→ 757     const branch = await prisma.branch.update({
+            where: {
+              id: "ca0b60a6-313d-4951-a889-c76342fa362e"
+            },
+            data: {
+              name: "الفرع الرئيسي",
+              code: "MAIN",
+              currencyId: "b73659b2-745b-46b0-9e87-0a03af4575d3",
+              users: []
+                     ~~
+            }
+          })
+
+Argument `users`: Invalid value provided. Expected UserUncheckedUpdateManyWithoutBranchesNestedInput, provided ().
+STACK: PrismaClientValidationError: 
+Invalid `prisma.branch.update()` invocation in
+D:\QwenCoder\familiy2\backend\src\interfaces\http\routes\metaRoutes.ts:757:40
+
+  754 router.put('/branches/:id', authMiddleware, checkPermission(['ENTITIES_EDIT']), async (req, res) => {
+  755   try {
+  756     const { currency, id, ...updateData } = req.body;
+→ 757     const branch = await prisma.branch.update({
+            where: {
+              id: "ca0b60a6-313d-4951-a889-c76342fa362e"
+            },
+            data: {
+              name: "الفرع الرئيسي",
+              code: "MAIN",
+              currencyId: "b73659b2-745b-46b0-9e87-0a03af4575d3",
+              users: []
+                     ~~
+            }
+          })
+
+Argument `users`: Invalid value provided. Expected UserUncheckedUpdateManyWithoutBranchesNestedInput, provided ().
+    at throwValidationException (D:\QwenCoder\familiy2\backend\node_modules\@prisma\client\src\runtime\core\errorRendering\throwValidationException.ts:46:9)
+    at zr.handleRequestError (D:\QwenCoder\familiy2\backend\node_modules\@prisma\client\src\runtime\RequestHandler.ts:211:7)
+    at zr.handleAndLogRequestError (D:\QwenCoder\familiy2\backend\node_modules\@prisma\client\src\runtime\RequestHandler.ts:183:12)
+    at zr.request (D:\QwenCoder\familiy2\backend\node_modules\@prisma\client\src\runtime\RequestHandler.ts:152:12)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at a (D:\QwenCoder\familiy2\backend\node_modules\@prisma\client\src\runtime\getPrismaClient.ts:808:24)
+    at D:\QwenCoder\familiy2\backend\src\interfaces\http\routes\metaRoutes.ts:757:20
+
+[2026-03-21T19:42:31.899Z] POST /restore - ERROR: 
+Invalid `prisma.user.deleteMany()` invocation:
+
+
+Foreign key constraint violated on the foreign key
+STACK: PrismaClientKnownRequestError: 
+Invalid `prisma.user.deleteMany()` invocation:
+
+
+Foreign key constraint violated on the foreign key
+    at zr.handleRequestError (D:\QwenCoder\familiy2\backend\node_modules\@prisma\client\src\runtime\RequestHandler.ts:237:13)
+    at zr.handleAndLogRequestError (D:\QwenCoder\familiy2\backend\node_modules\@prisma\client\src\runtime\RequestHandler.ts:183:12)
+    at zr.request (D:\QwenCoder\familiy2\backend\node_modules\@prisma\client\src\runtime\RequestHandler.ts:152:12)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at a (D:\QwenCoder\familiy2\backend\node_modules\@prisma\client\src\runtime\getPrismaClient.ts:808:24)
+    at prisma_1.default.$transaction.timeout (D:\QwenCoder\familiy2\backend\src\interfaces\http\routes\metaRoutes.ts:1364:5)
+    at Proxy._transactionWithCallback (D:\QwenCoder\familiy2\backend\node_modules\@prisma\client\src\runtime\getPrismaClient.ts:697:18)
+    at performRestoration (D:\QwenCoder\familiy2\backend\src\interfaces\http\routes\metaRoutes.ts:1346:3)
+    at D:\QwenCoder\familiy2\backend\src\interfaces\http\routes\metaRoutes.ts:1663:5
+
+[2026-03-22T22:38:23.825Z] POST /accounts - ERROR: 
+Invalid `prisma.account.create()` invocation in
+D:\QwenCoder\familiy2\backend\src\application\services\AccountService.ts:14:33
+
+  11   return ids;
+  12 }
+  13 async createAccount(data: { name: string, code: string, type: AccountType, currencyId: string, branchId: string, parentId?: string }) {
+→ 14   return await prisma.account.create(
+Unique constraint failed on the fields: (`code`)
+STACK: PrismaClientKnownRequestError: 
+Invalid `prisma.account.create()` invocation in
+D:\QwenCoder\familiy2\backend\src\application\services\AccountService.ts:14:33
+
+  11   return ids;
+  12 }
+  13 async createAccount(data: { name: string, code: string, type: AccountType, currencyId: string, branchId: string, parentId?: string }) {
+→ 14   return await prisma.account.create(
+Unique constraint failed on the fields: (`code`)
+    at zr.handleRequestError (D:\QwenCoder\familiy2\backend\node_modules\@prisma\client\src\runtime\RequestHandler.ts:237:13)
+    at zr.handleAndLogRequestError (D:\QwenCoder\familiy2\backend\node_modules\@prisma\client\src\runtime\RequestHandler.ts:183:12)
+    at zr.request (D:\QwenCoder\familiy2\backend\node_modules\@prisma\client\src\runtime\RequestHandler.ts:152:12)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at a (D:\QwenCoder\familiy2\backend\node_modules\@prisma\client\src\runtime\getPrismaClient.ts:808:24)
+    at AccountService.createAccount (D:\QwenCoder\familiy2\backend\src\application\services\AccountService.ts:14:12)
+    at D:\QwenCoder\familiy2\backend\src\interfaces\http\routes\metaRoutes.ts:655:21
+
+[2026-03-22T23:10:58.236Z] POST /accounts - ERROR: كود الحساب موجود مسبقاً، يرجى اختيار كود آخر
+STACK: Error: كود الحساب موجود مسبقاً، يرجى اختيار كود آخر
+    at AccountService.createAccount (D:\QwenCoder\familiy2\backend\src\application\services\AccountService.ts:16:13)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at D:\QwenCoder\familiy2\backend\src\interfaces\http\routes\metaRoutes.ts:655:21
+

@@ -11,8 +11,21 @@ export class SubscriptionReportService {
         const members = await prisma.member.findMany({
             where,
             include: {
-                entity: true,
-                subscriptions: true
+                entity: { include: { currency: true } },
+                subscriptions: {
+                    include: {
+                        journalEntry: {
+                            include: {
+                                lines: {
+                                    include: {
+                                        currency: true
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                exemptions: true
             },
             orderBy: [
                 { entity: { name: 'asc' } },
@@ -24,6 +37,7 @@ export class SubscriptionReportService {
         const yearsSet = new Set<number>();
         members.forEach(m => {
             m.subscriptions.forEach(s => yearsSet.add(s.year));
+            m.exemptions.forEach(e => yearsSet.add(e.year));
             if (m.affiliationYear) yearsSet.add(m.affiliationYear);
             if (m.stoppedAt) yearsSet.add(new Date(m.stoppedAt).getFullYear());
         });
@@ -55,11 +69,28 @@ export class SubscriptionReportService {
                 observations = `متوقف ${year ? `(${year})` : ''}`;
             }
 
+            const exemptYears = member.exemptions.map(e => e.year).sort((a, b) => b - a).join(', ');
+            if (exemptYears) {
+                observations = (observations ? observations + ' | ' : '') + `إعفاء: ${exemptYears}`;
+            }
+
             // Pivot subscriptions
-            const subMap: Record<number, number | null> = {};
+            const subMap: Record<number, any> = {};
             sortedYears.forEach(y => {
                 const sub = member.subscriptions.find(s => s.year === y);
-                subMap[y] = sub ? Number(sub.amount) : null;
+                const exempt = member.exemptions.some(e => e.year === y);
+                
+                if (sub) {
+                    const debitLine = sub.journalEntry?.lines?.find(l => Number(l.debit) > 0);
+                    const lineCurrency = debitLine?.currency?.symbol;
+
+                    subMap[y] = {
+                        amount: Number(sub.amount),
+                        symbol: lineCurrency || member.entity.currency.symbol || '$'
+                    };
+                } else {
+                    subMap[y] = exempt ? 0 : null;
+                }
             });
 
             entitiesMap.get(entityName).members.push({
@@ -77,5 +108,78 @@ export class SubscriptionReportService {
             years: sortedYears,
             data: Array.from(entitiesMap.values())
         };
+    }
+
+    async getSubscriptionSummaryPivot(
+        user: { id: string, role: string },
+        filters?: { yearFrom?: number; yearTo?: number; entityId?: string }
+    ) {
+        const where: any = {};
+        if (user.role === 'ENCARGADO') {
+            where.entity = { userId: user.id };
+        }
+        // Apply entity filter (overrides role filter if admin/responsable)
+        if (filters?.entityId) {
+            where.entityId = filters.entityId;
+        }
+
+        const members = await prisma.member.findMany({ where });
+
+        if (members.length === 0) return [];
+
+        // Collect all relevant years: affiliationYear + stoppedAt years
+        const yearsSet = new Set<number>();
+        members.forEach(m => {
+            if (m.affiliationYear) yearsSet.add(m.affiliationYear);
+            if (m.stoppedAt) yearsSet.add(new Date(m.stoppedAt).getFullYear());
+        });
+
+        let sortedYears = Array.from(yearsSet).sort((a, b) => a - b);
+
+        // Apply year range filter
+        if (filters?.yearFrom) sortedYears = sortedYears.filter(y => y >= filters.yearFrom!);
+        if (filters?.yearTo)   sortedYears = sortedYears.filter(y => y <= filters.yearTo!);
+
+        const summary = sortedYears.map(year => {
+            // All members affiliated up to this year (cumulative, incl. inactive/deceased)
+            const affiliatedByYear = members.filter(m => m.affiliationYear !== null && m.affiliationYear <= year);
+
+            // Active at end of this year: affiliated <= year AND not yet stopped
+            const activeByYear = affiliatedByYear.filter(m => {
+                if (!m.stoppedAt) return true;
+                return new Date(m.stoppedAt).getFullYear() > year;
+            });
+
+            // New subscribers: joined exactly this year
+            const newMembers = members.filter(m => m.affiliationYear === year);
+
+            // Became inactive this year
+            const inactiveThisYear = members.filter(m => {
+                if (!m.stoppedAt || m.status !== 'INACTIVE') return false;
+                return new Date(m.stoppedAt).getFullYear() === year;
+            });
+
+            // Died this year
+            const deceasedThisYear = members.filter(m => {
+                if (!m.stoppedAt || m.status !== 'DECEASED') return false;
+                return new Date(m.stoppedAt).getFullYear() === year;
+            });
+
+            const newCount = newMembers.length;
+            const inactiveCount = inactiveThisYear.length;
+            const deceasedCount = deceasedThisYear.length;
+
+            return {
+                year,
+                totalMembers: affiliatedByYear.length,   // all ever affiliated up to year
+                new: newCount,
+                inactive: inactiveCount,
+                deceased: deceasedCount,
+                difference: newCount - inactiveCount - deceasedCount,
+                cumulative: activeByYear.length          // real active count at year-end
+            };
+        });
+
+        return summary;
     }
 }

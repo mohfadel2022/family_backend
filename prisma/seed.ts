@@ -38,62 +38,112 @@ async function main() {
     // ── RBAC: Permissions ────────────────────────────────────────────────
     console.log(' - Setting up granular permissions...');
     const perms = [
-      // Vouchers
-      { code: 'VOUCHERS_VIEW', name: 'مشاهدة السندات', category: 'المحاسبة', description: 'عرض قائمة السندات والقيود' },
-      { code: 'VOUCHERS_CREATE', name: 'إضافة سند', category: 'المحاسبة', description: 'إنشاء سندات قبض وصرف جديدة' },
-      { code: 'VOUCHERS_EDIT', name: 'تعديل سند', category: 'المحاسبة', description: 'تعديل بيانات السندات الحالية' },
-      { code: 'VOUCHERS_DELETE', name: 'حذف سند', category: 'المحاسبة', description: 'حذف القيود والسندات من النظام' },
-      { code: 'VOUCHERS_EXPORT', name: 'تصدير السندات', category: 'المحاسبة', description: 'تصدير السندات إلى PDF/Excel' },
-      { code: 'VOUCHERS_IMPORT', name: 'استيراد السندات', category: 'المحاسبة', description: 'استيراد سندات من ملفات خارجية' },
+      // Vouchers - Journal
+      { code: 'JOURNAL_VIEW', name: 'مشاهدة', category: 'السندات / قيود اليومية', description: 'عرض قيود اليومية' },
+      { code: 'JOURNAL_CREATE', name: 'إضافة', category: 'السندات / قيود اليومية', description: 'إنشاء قيود يومية جديدة' },
+      { code: 'JOURNAL_EDIT', name: 'تعديل', category: 'السندات / قيود اليومية', description: 'تعديل قيود اليومية' },
+      { code: 'JOURNAL_DELETE', name: 'حذف', category: 'السندات / قيود اليومية', description: 'حذف قيود اليومية' },
+      { code: 'JOURNAL_PRINT', name: 'طباعة', category: 'السندات / قيود اليومية', description: 'طباعة القيد' },
+      { code: 'JOURNAL_POST', name: 'ترحيل', category: 'السندات / قيود اليومية', description: 'ترحيل القيد' },
+      { code: 'JOURNAL_UNPOST', name: 'إلغاء ترحيل', category: 'السندات / قيود اليومية', description: 'إلغاء ترحيل القيد' },
 
-      // Accounts
-      { code: 'ACCOUNTS_VIEW', name: 'مشاهدة الحسابات', category: 'المالية', description: 'عرض شجرة الحسابات والأرصدة' },
-      { code: 'ACCOUNTS_CREATE', name: 'إضافة حساب', category: 'المالية', description: 'إضافة حسابات جديدة للشجرة' },
-      { code: 'ACCOUNTS_EDIT', name: 'تعديل حساب', category: 'المالية', description: 'تعديل أسماء أو أنواع الحسابات' },
-      { code: 'ACCOUNTS_DELETE', name: 'حذف حساب', category: 'المالية', description: 'حذف الحسابات غير المستخدمة' },
-      { code: 'ACCOUNTS_EXPORT', name: 'تصدير الحسابات', category: 'المالية', description: 'تصدير شجرة الحسابات' },
-      { code: 'ACCOUNTS_IMPORT', name: 'استيراد الحسابات', category: 'المالية', description: 'استيراد شجرة حسابات' },
+      // Vouchers - Receipts
+      { code: 'RECEIPT_VIEW', name: 'مشاهدة', category: 'السندات / سندات القبض', description: 'عرض سندات القبض' },
+      { code: 'RECEIPT_CREATE', name: 'إضافة', category: 'السندات / سندات القبض', description: 'إنشاء سندات قبض جديدة' },
+      { code: 'RECEIPT_EDIT', name: 'تعديل', category: 'السندات / سندات القبض', description: 'تعديل سندات القبض' },
+      { code: 'RECEIPT_DELETE', name: 'حذف', category: 'السندات / سندات القبض', description: 'حذف سندات القبض' },
+      { code: 'RECEIPT_PRINT', name: 'طباعة', category: 'السندات / سندات القبض', description: 'طباعة سند القبض' },
+      { code: 'RECEIPT_POST', name: 'ترحيل', category: 'السندات / سندات القبض', description: 'ترحيل سند القبض' },
+      { code: 'RECEIPT_UNPOST', name: 'إلغاء ترحيل', category: 'السندات / سندات القبض', description: 'إلغاء ترحيل سند القبض' },
 
-      // Members
-      { code: 'MEMBERS_VIEW', name: 'مشاهدة الأعضاء', category: 'الاشتراكات', description: 'عرض قائمة أعضاء الصندوق' },
-      { code: 'MEMBERS_CREATE', name: 'إضافة عضو', category: 'الاشتراكات', description: 'تسجيل أعضاء جدد' },
-      { code: 'MEMBERS_EDIT', name: 'تعديل عضو', category: 'الاشتراكات', description: 'تحديث بيانات المشتركين' },
-      { code: 'MEMBERS_DELETE', name: 'حذف عضو', category: 'الاشتراكات', description: 'حذف سجلات الأعضاء' },
-      { code: 'MEMBERS_EXPORT', name: 'تصدير الأعضاء', category: 'الاشتراكات', description: 'تصدير قائمة الأعضاء (Excel/PDF)' },
-      { code: 'MEMBERS_IMPORT', name: 'استيراد الأعضاء', category: 'الاشتراكات', description: 'استيراد قائمة أعضاء من ملف Excel' },
+      // Vouchers - Payments
+      { code: 'PAYMENT_VIEW', name: 'مشاهدة', category: 'السندات / سندات الصرف', description: 'عرض سندات الصرف' },
+      { code: 'PAYMENT_CREATE', name: 'إضافة', category: 'السندات / سندات الصرف', description: 'إنشاء سندات صرف جديدة' },
+      { code: 'PAYMENT_EDIT', name: 'تعديل', category: 'السندات / سندات الصرف', description: 'تعديل سندات صرف' },
+      { code: 'PAYMENT_DELETE', name: 'حذف', category: 'السندات / سندات الصرف', description: 'حذف سندات صرف' },
+      { code: 'PAYMENT_PRINT', name: 'طباعة', category: 'السندات / سندات الصرف', description: 'طباعة سند الصرف' },
+      { code: 'PAYMENT_POST', name: 'ترحيل', category: 'السندات / سندات الصرف', description: 'ترحيل سند الصرف' },
+      { code: 'PAYMENT_UNPOST', name: 'إلغاء ترحيل', category: 'السندات / سندات الصرف', description: 'إلغاء ترحيل سند الصرف' },
 
-      // Entities
-      { code: 'ENTITIES_VIEW', name: 'مشاهدة الجهات', category: 'الاشتراكات', description: 'عرض جهات الاشتراك (الولايات)' },
-      { code: 'ENTITIES_CREATE', name: 'إضافة جهة', category: 'الاشتراكات', description: 'إضافة جهة اشتراك جديدة' },
-      { code: 'ENTITIES_EDIT', name: 'تعديل جهة', category: 'الاشتراكات', description: 'تعديل بيانات الجهات والمشرفين' },
-      { code: 'ENTITIES_DELETE', name: 'حذف جهة', category: 'الاشتراكات', description: 'حذف جهة اشتراك' },
+      // Subscriptions
+      { code: 'SUBSCRIPTIONS_VIEW', name: 'مشاهدة', category: 'الاشتراكات', description: 'عرض ملخص الاشتراكات' },
+      { code: 'MEMBERS_VIEW', name: 'مشاهدة', category: 'الاشتراكات / الأعضاء', description: 'عرض قائمة الأعضاء' },
+      { code: 'MEMBERS_CREATE', name: 'إضافة', category: 'الاشتراكات / الأعضاء', description: 'تسجيل أعضاء جدد' },
+      { code: 'MEMBERS_EDIT', name: 'تعديل', category: 'الاشتراكات / الأعضاء', description: 'تحديث بيانات المشتركين' },
+      { code: 'MEMBERS_DELETE', name: 'حذف', category: 'الاشتراكات / الأعضاء', description: 'حذف سجلات الأعضاء' },
+      { code: 'MEMBERS_IMPORT', name: 'استيراد', category: 'الاشتراكات / الأعضاء', description: 'استيراد قائمة أعضاء' },
+      { code: 'MEMBERS_EXPORT', name: 'تصدير', category: 'الاشتراكات / الأعضاء', description: 'تصدير قائمة الأعضاء' },
 
-      // Users
-      { code: 'USERS_VIEW', name: 'مشاهدة المستخدمين', category: 'النظام', description: 'عرض قائمة مستخدمي النظام' },
-      { code: 'USERS_CREATE', name: 'إضافة مستخدم', category: 'النظام', description: 'إنشاء حسابات مستخدمين جديدة' },
-      { code: 'USERS_EDIT', name: 'تعديل مستخدم', category: 'النظام', description: 'تعديل بيانات وصلاحيات المستخدمين' },
-      { code: 'USERS_DELETE', name: 'حذف مستخدم', category: 'النظام', description: 'حذف حساب مستخدم' },
+      { code: 'ENTITIES_VIEW', name: 'مشاهدة', category: 'الإعدادات / إدارة الجهات', description: 'عرض جهات الاشتراك' },
+      { code: 'ENTITIES_CREATE', name: 'إضافة', category: 'الإعدادات / إدارة الجهات', description: 'إضافة جهة اشتراك جديدة' },
+      { code: 'ENTITIES_EDIT', name: 'تعديل', category: 'الإعدادات / إدارة الجهات', description: 'تعديل بيانات الجهات' },
+      { code: 'ENTITIES_DELETE', name: 'حذف', category: 'الإعدادات / إدارة الجهات', description: 'حذف جهة اشتراك' },
 
-      // Roles
-      { code: 'ROLES_VIEW', name: 'مشاهدة الأدوار', category: 'النظام', description: 'عرض مصفوفة الأدوار والصلاحيات' },
-      { code: 'ROLES_MANAGE', name: 'إدارة الأدوار', category: 'النظام', description: 'إنشاء وتعديل مصفوفة الصلاحيات' },
+      { code: 'COLLECTS_VIEW', name: 'مشاهدة', category: 'الاشتراكات / التحصيل', description: 'عرض عمليات التحصيل' },
+      { code: 'COLLECTS_CREATE', name: 'إنشاء', category: 'الاشتراكات / التحصيل', description: 'تسجيل عمليات تحصيل جديدة' },
+      { code: 'COLLECTS_EDIT', name: 'تعديل (Unpost)', category: 'الاشتراكات / التحصيل', description: 'تعديل عمليات التحصيل' },
+      { code: 'COLLECTS_DELETE', name: 'حذف', category: 'الاشتراكات / التحصيل', description: 'حذف عمليات التحصيل' },
 
       // Reports
-      { code: 'REPORTS_VIEW', name: 'مشاهدة التقارير', category: 'التقارير', description: 'الوصول لمركز التقارير المالية' },
-      { code: 'REPORTS_EXPORT', name: 'تصدير التقارير', category: 'التقارير', description: 'تصدير القوائم المالية' },
+      { code: 'REPORTS_VIEW', name: 'دخول المركز', category: 'التقارير', description: 'الوصول لمركز التقارير' },
+      { code: 'REPORTS_EXPORT', name: 'تصدير', category: 'التقارير', description: 'تصدير التقارير' },
+      { code: 'REPORTS_TRIAL_BALANCE_VIEW', name: 'مشاهدة', category: 'التقارير / ميزان المراجعة', description: 'عرض ميزان المراجعة' },
+      { code: 'REPORTS_TRIAL_BALANCE_EXPORT', name: 'تصدير', category: 'التقارير / ميزان المراجعة', description: 'تصدير ميزان المراجعة' },
+      { code: 'REPORTS_INCOME_STATEMENT_VIEW', name: 'مشاهدة', category: 'التقارير / قائمة الدخل', description: 'عرض قائمة الدخل' },
+      { code: 'REPORTS_INCOME_STATEMENT_EXPORT', name: 'تصدير', category: 'التقارير / قائمة الدخل', description: 'تصدير قائمة الدخل' },
+      { code: 'REPORTS_ACCOUNT_STATEMENT_VIEW', name: 'مشاهدة', category: 'التقارير / كشف الحساب', description: 'عرض كشف حساب تفصيلي' },
+      { code: 'REPORTS_ACCOUNT_STATEMENT_EXPORT', name: 'تصدير', category: 'التقارير / كشف الحساب', description: 'تصدير كشف الحساب' },
+      { code: 'REPORTS_BRANCH_REVENUE_VIEW', name: 'مشاهدة', category: 'التقارير / إيرادات الجهات', description: 'عرض تقرير إيرادات الجهات' },
+      { code: 'REPORTS_BRANCH_REVENUE_EXPORT', name: 'تصدير', category: 'التقارير / إيرادات الجهات', description: 'تصدير تقرير إيرادات الجهات' },
+      { code: 'REPORTS_BRANCH_EXPENSE_VIEW', name: 'مشاهدة', category: 'التقارير / مصاريف الجهات', description: 'عرض تقرير مصاريف الجهات' },
+      { code: 'REPORTS_BRANCH_EXPENSE_EXPORT', name: 'تصدير', category: 'التقارير / مصاريف الجهات', description: 'تصدير تقرير مصاريف الجهات' },
+      { code: 'REPORTS_CURRENCY_GAINS_VIEW', name: 'مشاهدة', category: 'التقارير / فروقات العملة', description: 'عرض تقرير فروقات الصرف' },
+      { code: 'REPORTS_CURRENCY_GAINS_EXPORT', name: 'تصدير', category: 'التقارير / فروقات العملة', description: 'تصدير تقرير فروقات الصرف' },
+      { code: 'REPORTS_CURRENCY_HISTORY_VIEW', name: 'مشاهدة', category: 'التقارير / سجل العملات', description: 'عرض سجل تاريخ أسعار الصرف' },
+      { code: 'REPORTS_CURRENCY_HISTORY_EXPORT', name: 'تصدير', category: 'التقارير / سجل العملات', description: 'تصدير سجل أسعار الصرف' },
+      { code: 'REPORTS_SUBSCRIPTIONS_VIEW', name: 'مشاهدة', category: 'التقارير / جدول الاشتراكات', description: 'عرض تقرير الاشتراكات' },
+      { code: 'REPORTS_SUBSCRIPTIONS_EXPORT', name: 'تصدير', category: 'التقارير / جدول الاشتراكات', description: 'تصدير تقرير الاشتراكات PDF/Excel' },
 
-      // Currencies
-      { code: 'CURRENCIES_VIEW', name: 'مشاهدة العملات', category: 'المالية', description: 'عرض قائمة العملات وأسعار الصرف' },
-      { code: 'CURRENCIES_MANAGE', name: 'إدارة العملات', category: 'المالية', description: 'إضافة وتعديل وحذف العملات' },
+      // Accounts
+      { code: 'ACCOUNTS_VIEW', name: 'مشاهدة', category: 'الحسابات / شجرة الحسابات', description: 'عرض شجرة الحسابات' },
+      { code: 'ACCOUNTS_CREATE', name: 'إضافة', category: 'الحسابات / شجرة الحسابات', description: 'إضافة حسابات جديدة' },
+      { code: 'ACCOUNTS_EDIT', name: 'تعديل', category: 'الحسابات / شجرة الحسابات', description: 'تعديل الحسابات' },
+      { code: 'ACCOUNTS_DELETE', name: 'حذف', category: 'الحسابات / شجرة الحسابات', description: 'حذف الحسابات' },
+      { code: 'ACCOUNTS_EXPORT', name: 'تصدير', category: 'الحسابات / شجرة الحسابات', description: 'تصدير شجرة الحسابات' },
+      { code: 'ACCOUNTS_IMPORT', name: 'استيراد', category: 'الحسابات / شجرة الحسابات', description: 'استيراد شجرة حسابات' },
 
-      // Periods
-      { code: 'PERIODS_VIEW', name: 'مشاهدة الفترات', category: 'المالية', description: 'عرض الفترات المحاسبية وحالة الإغلاق' },
-      { code: 'PERIODS_MANAGE', name: 'إدارة الفترات', category: 'المالية', description: 'فتح وإغلاق الفترات المحاسبية' },
+      { code: 'CURRENCIES_VIEW', name: 'مشاهدة', category: 'الإعدادات / العملات', description: 'عرض العملات' },
+      { code: 'CURRENCIES_CREATE', name: 'إضافة', category: 'الإعدادات / العملات', description: 'إضافة عملات جديدة' },
+      { code: 'CURRENCIES_EDIT', name: 'تعديل', category: 'الإعدادات / العملات', description: 'تعديل العملات والأسعار' },
+      { code: 'CURRENCIES_DELETE', name: 'حذف', category: 'الإعدادات / العملات', description: 'حذف العملات' },
 
-      // Security
-      { code: 'AUDIT_VIEW', name: 'مشاهدة السجل', category: 'الأمان', description: 'مشاهدة تحركات المستخدمين' },
-      { code: 'DB_BACKUP', name: 'النسخ الاحتياطي', category: 'الأمان', description: 'تحميل نسخ احتياطية واستعادتها' },
-      { code: 'DB_RESET', name: 'تصفير البيانات', category: 'الأمان', description: 'حذف كافة البيانات المالية (بدء من الصفر)' },
+      { code: 'PERIODS_VIEW', name: 'مشاهدة', category: 'الإعدادات / الفترات', description: 'عرض الفترات المحاسبية' },
+      { code: 'PERIODS_CREATE', name: 'إضافة', category: 'الإعدادات / الفترات', description: 'إضافة فترات محاسبية' },
+      { code: 'PERIODS_EDIT', name: 'تعديل', category: 'الإعدادات / الفترات', description: 'تعديل أو قفل الفترات' },
+      { code: 'PERIODS_DELETE', name: 'حذف', category: 'الإعدادات / الفترات', description: 'حذف الفترات' },
+
+      { code: 'USERS_VIEW', name: 'مشاهدة', category: 'الإعدادات / المستخدمين', description: 'عرض قائمة المستخدمين' },
+      { code: 'USERS_CREATE', name: 'إضافة', category: 'الإعدادات / المستخدمين', description: 'إنشاء حسابات مستخدمين' },
+      { code: 'USERS_EDIT', name: 'تعديل', category: 'الإعدادات / المستخدمين', description: 'تعديل بيانات المستخدمين' },
+      { code: 'USERS_DELETE', name: 'حذف', category: 'الإعدادات / المستخدمين', description: 'حذف حساب مستخدم' },
+
+      { code: 'ROLES_VIEW', name: 'مشاهدة', category: 'الإعدادات / الأدوار', description: 'عرض مصفوفة الأدوار' },
+      { code: 'ROLES_CREATE', name: 'إضافة', category: 'الإعدادات / الأدوار', description: 'إنشاء أدوار جديدة' },
+      { code: 'ROLES_EDIT', name: 'تعديل', category: 'الإعدادات / الأدوار', description: 'تعديل صلاحيات الأدوار' },
+      { code: 'ROLES_DELETE', name: 'حذف', category: 'الإعدادات / الأدوار', description: 'حذف الأدوار' },
+
+      { code: 'PERMISSIONS_VIEW', name: 'مشاهدة', category: 'الإعدادات / إدارة الصلاحيات', description: 'عرض مفاتيح الصلاحيات' },
+      { code: 'PERMISSIONS_CREATE', name: 'إضافة', category: 'الإعدادات / إدارة الصلاحيات', description: 'إضافة مفاتيح جديدة' },
+      { code: 'PERMISSIONS_EDIT', name: 'تعديل', category: 'الإعدادات / إدارة الصلاحيات', description: 'تعديل مفاتيح الصلاحيات' },
+      { code: 'PERMISSIONS_DELETE', name: 'حذف', category: 'الإعدادات / إدارة الصلاحيات', description: 'حذف مفاتيح الصلاحيات' },
+
+      { code: 'AUDIT_LOGS_VIEW', name: 'مشاهدة', category: 'الإعدادات / سجل العمليات', description: 'مشاهدة سجل الحركات' },
+      { code: 'AUDIT_LOGS_DELETE', name: 'حذف', category: 'الإعدادات / سجل العمليات', description: 'حذف سجلات العمليات' },
+      { code: 'DB_BACKUP', name: 'نسخ احتياطي', category: 'الإعدادات / قاعدة البيانات', description: 'النسخ الاحتياطي' },
+      { code: 'DB_RESTORE', name: 'استعادة', category: 'الإعدادات / قاعدة البيانات', description: 'استعادة قاعدة البيانات' },
+      { code: 'DB_RESET', name: 'تصفير المالي', category: 'الإعدادات / قاعدة البيانات', description: 'تصفير البيانات' },
+      { code: 'THEMES_VIEW', name: 'مشاهدة', category: 'الإعدادات / ألوان الصفحات', description: 'عرض إعدادات ألوان الصفحات' },
+      { code: 'THEMES_EDIT', name: 'تعديل', category: 'الإعدادات / ألوان الصفحات', description: 'تعديل ألوان الصفحات' },
     ];
 
     const permissionRecords: any = {};
@@ -114,21 +164,59 @@ async function main() {
       }
     });
 
-    const roleResponsible = await prisma.role.create({
+    const roleResponsable = await prisma.role.create({
       data: {
-        name: 'RESPONSIBLE',
+        name: 'RESPONSABLE',
         description: 'مسؤول العمليات اليومية والتقارير المالية',
         permissions: {
           create: [
-            { permissionId: permissionRecords['VOUCHERS_VIEW'].id },
-            { permissionId: permissionRecords['VOUCHERS_CREATE'].id },
-            { permissionId: permissionRecords['VOUCHERS_EDIT'].id },
+            { permissionId: permissionRecords['JOURNAL_VIEW'].id },
+            { permissionId: permissionRecords['JOURNAL_CREATE'].id },
+            { permissionId: permissionRecords['JOURNAL_EDIT'].id },
+            { permissionId: permissionRecords['JOURNAL_POST'].id },
+            { permissionId: permissionRecords['JOURNAL_UNPOST'].id },
+            { permissionId: permissionRecords['RECEIPT_VIEW'].id },
+            { permissionId: permissionRecords['RECEIPT_CREATE'].id },
+            { permissionId: permissionRecords['RECEIPT_EDIT'].id },
+            { permissionId: permissionRecords['RECEIPT_POST'].id },
+            { permissionId: permissionRecords['RECEIPT_UNPOST'].id },
+            { permissionId: permissionRecords['PAYMENT_VIEW'].id },
+            { permissionId: permissionRecords['PAYMENT_CREATE'].id },
+            { permissionId: permissionRecords['PAYMENT_EDIT'].id },
+            { permissionId: permissionRecords['PAYMENT_POST'].id },
+            { permissionId: permissionRecords['PAYMENT_UNPOST'].id },
+            { permissionId: permissionRecords['JOURNAL_PRINT'].id },
+            { permissionId: permissionRecords['RECEIPT_PRINT'].id },
+            { permissionId: permissionRecords['PAYMENT_PRINT'].id },
             { permissionId: permissionRecords['ACCOUNTS_VIEW'].id },
             { permissionId: permissionRecords['MEMBERS_VIEW'].id },
+            { permissionId: permissionRecords['MEMBERS_CREATE'].id },
             { permissionId: permissionRecords['MEMBERS_EDIT'].id },
+            { permissionId: permissionRecords['MEMBERS_DELETE'].id },
             { permissionId: permissionRecords['ENTITIES_VIEW'].id },
+            { permissionId: permissionRecords['COLLECTS_VIEW'].id },
+            { permissionId: permissionRecords['COLLECTS_CREATE'].id },
+            { permissionId: permissionRecords['COLLECTS_EDIT'].id },
             { permissionId: permissionRecords['REPORTS_VIEW'].id },
             { permissionId: permissionRecords['REPORTS_EXPORT'].id },
+            { permissionId: permissionRecords['REPORTS_TRIAL_BALANCE_VIEW'].id },
+            { permissionId: permissionRecords['REPORTS_TRIAL_BALANCE_EXPORT'].id },
+            { permissionId: permissionRecords['REPORTS_INCOME_STATEMENT_VIEW'].id },
+            { permissionId: permissionRecords['REPORTS_INCOME_STATEMENT_EXPORT'].id },
+            { permissionId: permissionRecords['REPORTS_ACCOUNT_STATEMENT_VIEW'].id },
+            { permissionId: permissionRecords['REPORTS_ACCOUNT_STATEMENT_EXPORT'].id },
+            { permissionId: permissionRecords['REPORTS_BRANCH_REVENUE_VIEW'].id },
+            { permissionId: permissionRecords['REPORTS_BRANCH_REVENUE_EXPORT'].id },
+            { permissionId: permissionRecords['REPORTS_BRANCH_EXPENSE_VIEW'].id },
+            { permissionId: permissionRecords['REPORTS_BRANCH_EXPENSE_EXPORT'].id },
+            { permissionId: permissionRecords['REPORTS_CURRENCY_GAINS_VIEW'].id },
+            { permissionId: permissionRecords['REPORTS_CURRENCY_GAINS_EXPORT'].id },
+            { permissionId: permissionRecords['REPORTS_CURRENCY_HISTORY_VIEW'].id },
+            { permissionId: permissionRecords['REPORTS_CURRENCY_HISTORY_EXPORT'].id },
+            { permissionId: permissionRecords['REPORTS_SUBSCRIPTIONS_VIEW'].id },
+            { permissionId: permissionRecords['REPORTS_SUBSCRIPTIONS_EXPORT'].id },
+            { permissionId: permissionRecords['CURRENCIES_VIEW'].id },
+            { permissionId: permissionRecords['PERIODS_VIEW'].id },
           ]
         }
       }
@@ -150,12 +238,48 @@ async function main() {
             // Entities (View/Edit)
             { permissionId: permissionRecords['ENTITIES_VIEW'].id },
             { permissionId: permissionRecords['ENTITIES_EDIT'].id },
-            // Vouchers (View/Create - if they manage subscriptions)
-            { permissionId: permissionRecords['VOUCHERS_VIEW'].id },
-            { permissionId: permissionRecords['VOUCHERS_CREATE'].id },
+            // Vouchers (View/Create/Edit/Delete)
+            { permissionId: permissionRecords['JOURNAL_VIEW'].id },
+            { permissionId: permissionRecords['JOURNAL_CREATE'].id },
+            { permissionId: permissionRecords['JOURNAL_EDIT'].id },
+            { permissionId: permissionRecords['JOURNAL_DELETE'].id },
+            { permissionId: permissionRecords['JOURNAL_POST'].id },
+            { permissionId: permissionRecords['JOURNAL_UNPOST'].id },
+            { permissionId: permissionRecords['RECEIPT_VIEW'].id },
+            { permissionId: permissionRecords['RECEIPT_CREATE'].id },
+            { permissionId: permissionRecords['RECEIPT_EDIT'].id },
+            { permissionId: permissionRecords['RECEIPT_DELETE'].id },
+            { permissionId: permissionRecords['RECEIPT_POST'].id },
+            { permissionId: permissionRecords['RECEIPT_UNPOST'].id },
+            { permissionId: permissionRecords['PAYMENT_VIEW'].id },
+            { permissionId: permissionRecords['PAYMENT_CREATE'].id },
+            { permissionId: permissionRecords['PAYMENT_EDIT'].id },
+            { permissionId: permissionRecords['PAYMENT_DELETE'].id },
+            { permissionId: permissionRecords['PAYMENT_POST'].id },
+            { permissionId: permissionRecords['PAYMENT_UNPOST'].id },
+            { permissionId: permissionRecords['JOURNAL_PRINT'].id },
+            { permissionId: permissionRecords['RECEIPT_PRINT'].id },
+            { permissionId: permissionRecords['PAYMENT_PRINT'].id },
             // Reports (View/Export for their entity)
             { permissionId: permissionRecords['REPORTS_VIEW'].id },
             { permissionId: permissionRecords['REPORTS_EXPORT'].id },
+            { permissionId: permissionRecords['REPORTS_TRIAL_BALANCE_VIEW'].id },
+            { permissionId: permissionRecords['REPORTS_TRIAL_BALANCE_EXPORT'].id },
+            { permissionId: permissionRecords['REPORTS_INCOME_STATEMENT_VIEW'].id },
+            { permissionId: permissionRecords['REPORTS_INCOME_STATEMENT_EXPORT'].id },
+            { permissionId: permissionRecords['REPORTS_ACCOUNT_STATEMENT_VIEW'].id },
+            { permissionId: permissionRecords['REPORTS_ACCOUNT_STATEMENT_EXPORT'].id },
+            { permissionId: permissionRecords['REPORTS_BRANCH_REVENUE_VIEW'].id },
+            { permissionId: permissionRecords['REPORTS_BRANCH_REVENUE_EXPORT'].id },
+            { permissionId: permissionRecords['REPORTS_BRANCH_EXPENSE_VIEW'].id },
+            { permissionId: permissionRecords['REPORTS_BRANCH_EXPENSE_EXPORT'].id },
+            { permissionId: permissionRecords['REPORTS_CURRENCY_GAINS_VIEW'].id },
+            { permissionId: permissionRecords['REPORTS_CURRENCY_GAINS_EXPORT'].id },
+            { permissionId: permissionRecords['REPORTS_CURRENCY_HISTORY_VIEW'].id },
+            { permissionId: permissionRecords['REPORTS_CURRENCY_HISTORY_EXPORT'].id },
+            { permissionId: permissionRecords['REPORTS_SUBSCRIPTIONS_VIEW'].id },
+            { permissionId: permissionRecords['REPORTS_SUBSCRIPTIONS_EXPORT'].id },
+            { permissionId: permissionRecords['ACCOUNTS_VIEW'].id },
             { permissionId: permissionRecords['CURRENCIES_VIEW'].id },
             { permissionId: permissionRecords['PERIODS_VIEW'].id },
           ]
@@ -230,7 +354,7 @@ async function main() {
       data: {
         username: "mohfadel", name: "محمد فاضل",
         password: userPassword,
-        roleId: roleEncargado.id,
+        roleId: roleResponsable.id,
       }
     });
     const usr_mohsalem = await prisma.user.create({

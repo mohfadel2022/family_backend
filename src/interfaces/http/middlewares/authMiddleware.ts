@@ -11,14 +11,26 @@ export const authMiddleware = async (req: any, res: Response, next: NextFunction
 
   let decoded: any;
   if (token === 'mock-token') {
-    const adminRole = await prisma.role.findFirst({ where: { name: 'ADMIN' }, include: { permissions: { include: { permission: true } } } });
-    if (!adminRole) return res.status(500).json({ error: 'Admin role not initialized' });
+    const admin = await prisma.user.findFirst({
+      where: { role: { name: 'ADMIN' } },
+      include: {
+        role: {
+          include: {
+            permissions: { include: { permission: true } }
+          }
+        }
+      }
+    });
+
+    if (!admin) return res.status(500).json({ error: 'Admin user not initialized' });
 
     req.user = {
-      id: 'mock-admin-id',
-      username: 'admin',
+      id: admin.id,
+      username: admin.username,
       role: 'ADMIN',
-      permissions: adminRole.permissions.map(p => p.permission.code)
+      permissions: admin.role?.permissions
+        .filter(p => p.permission)
+        .map(p => p.permission.code) || []
     };
     return next();
   }
@@ -47,7 +59,9 @@ export const authMiddleware = async (req: any, res: Response, next: NextFunction
     req.user = {
       ...decoded,
       role: user.role?.name || 'GUEST',
-      permissions: user.role?.permissions.map(p => p.permission.code) || []
+      permissions: user.role?.permissions
+        .filter(p => p.permission)
+        .map(p => p.permission.code) || []
     };
 
     next();

@@ -124,7 +124,7 @@ async function main() {
         L.push(`${I(2)}const ${uV[u.id]} = await prisma.user.create({ data: {`);
         L.push(`${I(3)}username: ${q(u.username)}, name: ${q(u.name)},`);
         L.push(`${I(3)}password: ${q(u.password)}, // bcrypt hash`);
-        L.push(`${I(3)}role: ${q(u.role)},`);
+        L.push(`${I(3)}role: ${q(u.roleId)},`);
         L.push(`${I(2)}}});`);
     }
     L.push(``);

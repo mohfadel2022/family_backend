@@ -4,6 +4,10 @@ import path from 'path';
 import { authMiddleware } from '../middlewares/authMiddleware';
 import prisma from '../../../infrastructure/database/prisma';
 import { checkPermission } from '../middlewares/roleMiddleware';
+import fs from 'fs';
+import { promisify } from 'util';
+
+const unlinkAsync = promisify(fs.unlink);
 
 const router = Router();
 
@@ -81,6 +85,24 @@ router.post('/link', authMiddleware, checkPermission(['VOUCHERS_EDIT']), async (
     }
 });
 
+// Delete file by URL (for files not yet linked to an attachment record)
+router.post('/delete-binary', authMiddleware, checkPermission(['VOUCHERS_CREATE', 'VOUCHERS_EDIT']), async (req: any, res) => {
+    const { fileUrl } = req.body;
+    if (!fileUrl) return res.status(400).json({ error: 'fileUrl is required' });
+
+    try {
+        const filePath = path.join(process.cwd(), fileUrl.startsWith('/') ? fileUrl.substring(1) : fileUrl);
+        if (fs.existsSync(filePath)) {
+            await unlinkAsync(filePath);
+            res.json({ message: 'File deleted successfully' });
+        } else {
+            res.status(404).json({ error: 'File not found' });
+        }
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Delete attachment
 router.delete('/:id', authMiddleware, checkPermission(['VOUCHERS_EDIT', 'VOUCHERS_DELETE']), async (req: any, res) => {
     try {
@@ -101,6 +123,15 @@ router.delete('/:id', authMiddleware, checkPermission(['VOUCHERS_EDIT', 'VOUCHER
                 return res.status(403).json({ error: 'Forbidden: You do not have access to this attachment' });
             }
         }
+
+        // Physical file deletion
+        if (attachment.fileUrl) {
+            const filePath = path.join(process.cwd(), attachment.fileUrl.startsWith('/') ? attachment.fileUrl.substring(1) : attachment.fileUrl);
+            if (fs.existsSync(filePath)) {
+                await unlinkAsync(filePath).catch(err => console.error(`Failed to delete file: ${filePath}`, err));
+            }
+        }
+
         await prisma.attachment.delete({
             where: { id: req.params.id }
         });

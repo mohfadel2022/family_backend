@@ -16,10 +16,16 @@ export class SubscriptionService {
             };
         }
 
-        return prisma.subscriptionCollection.findMany({
+        const collections = await prisma.subscriptionCollection.findMany({
             where,
             include: {
                 user: { select: { name: true } },
+                debitAccount: {
+                    include: {
+                        currency: { select: { symbol: true, name: true, code: true } }
+                    }
+                },
+                creditAccount: { select: { name: true, code: true } },
                 items: {
                     include: {
                         member: {
@@ -34,12 +40,20 @@ export class SubscriptionService {
             },
             orderBy: { createdAt: 'desc' }
         });
+
+        // Flatten currency for frontend convenience
+        return collections.map(c => ({
+            ...c,
+            currency: c.debitAccount?.currency?.name || '---'
+        }));
     }
 
     async getCollection(user: { id: string, role: string }, id: string) {
         const collection = await prisma.subscriptionCollection.findUnique({
             where: { id },
             include: {
+                debitAccount: { select: { name: true, code: true } },
+                creditAccount: { select: { name: true, code: true } },
                 items: {
                     include: {
                         member: {
@@ -52,7 +66,11 @@ export class SubscriptionService {
                     }
                 },
                 journalEntry: {
-                    include: { lines: true }
+                    include: {
+                        lines: {
+                            include: { account: true, currency: true }
+                        }
+                    }
                 }
             }
         });
@@ -91,8 +109,17 @@ export class SubscriptionService {
             }
         }
 
-        return prisma.subscriptionCollection.delete({
-            where: { id }
+        return prisma.$transaction(async (tx) => {
+            // Delete linked receipt if it exists
+            if (existing.journalEntryId) {
+                await tx.journalEntry.delete({
+                    where: { id: existing.journalEntryId }
+                });
+            }
+
+            return tx.subscriptionCollection.delete({
+                where: { id }
+            });
         });
     }
 
@@ -117,7 +144,12 @@ export class SubscriptionService {
 
         return prisma.member.findMany({
             where,
-            include: { entity: true, manager: { select: { id: true, name: true, phone: true } } }
+            include: {
+                entity: true,
+                manager: { select: { id: true, name: true, phone: true } },
+                subscriptions: true,
+                exemptions: true
+            }
         });
     }
 
@@ -135,6 +167,11 @@ export class SubscriptionService {
                 entityId,
                 affiliationYear: { lte: year },
                 subscriptions: {
+                    none: {
+                        year: year
+                    }
+                },
+                exemptions: {
                     none: {
                         year: year
                     }
@@ -268,15 +305,28 @@ export class SubscriptionService {
                     throw new Error('لا يمكن ترحيل سجل يحتوي على أعضاء من فروع مختلفة في سند واحد');
                 }
 
-                const branch = await tx.branch.findUnique({
-                    where: { id: branchId },
+                const targetEntity = await tx.entity.findUnique({
+                    where: { id: targetEntityId },
                     include: { currency: true }
                 });
-                if (!branch) throw new Error('الفرع غير موجود');
+                if (!targetEntity) throw new Error('الجهة غير موجودة');
 
-                const currencyId = branch.currencyId;
-                const exchangeRate = Number(branch.currency.exchangeRate);
-                const baseAmount = totalAmount * exchangeRate;
+                const entityExchangeRate = Number(targetEntity.currency.exchangeRate || 1);
+                const baseAmount = totalAmount * entityExchangeRate;
+
+                const debitAccount = await tx.account.findUnique({
+                    where: { id: debitAccountId },
+                    include: { currency: true }
+                });
+                const creditAccount = await tx.account.findUnique({
+                    where: { id: creditAccountId },
+                    include: { currency: true }
+                });
+
+                if (!debitAccount || !creditAccount) throw new Error('الحسابات المحددة غير موجودة');
+
+                const debitRate = Number(debitAccount.currency.exchangeRate || 1);
+                const creditRate = Number(creditAccount.currency.exchangeRate || 1);
 
                 const lastEntry = await tx.journalEntry.findFirst({
                     where: { type: JournalEntryType.RECEIPT, branchId },
@@ -297,8 +347,24 @@ export class SubscriptionService {
                         createdBy,
                         lines: {
                             create: [
-                                { accountId: debitAccountId, currencyId, debit: totalAmount, credit: 0, exchangeRate, baseDebit: baseAmount, baseCredit: 0 },
-                                { accountId: creditAccountId, currencyId, debit: 0, credit: totalAmount, exchangeRate, baseDebit: 0, baseCredit: baseAmount }
+                                {
+                                    accountId: debitAccountId,
+                                    currencyId: debitAccount.currencyId,
+                                    debit: baseAmount / debitRate,
+                                    credit: 0,
+                                    exchangeRate: debitRate,
+                                    baseDebit: baseAmount,
+                                    baseCredit: 0
+                                },
+                                {
+                                    accountId: creditAccountId,
+                                    currencyId: creditAccount.currencyId,
+                                    debit: 0,
+                                    credit: baseAmount / creditRate,
+                                    exchangeRate: creditRate,
+                                    baseDebit: 0,
+                                    baseCredit: baseAmount
+                                }
                             ]
                         }
                     }
@@ -394,7 +460,7 @@ export class SubscriptionService {
         });
     }
 
-    async importMembers(user: { id: string, role: string }, filename: string, rows: any[]) {
+    async importMembers(user: { id: string, role: string }, filename: string, rows: any[], defaultYear?: number) {
         let importedCount = 0;
         let errorsCount = 0;
         const errorsDetails: any[] = [];
@@ -409,6 +475,8 @@ export class SubscriptionService {
             managedEntityIds = entities.map(e => e.id);
         }
 
+        const fallbackYear = defaultYear || new Date().getFullYear();
+
         for (let i = 0; i < rows.length; i++) {
             const row = rows[i];
             try {
@@ -419,8 +487,8 @@ export class SubscriptionService {
                     throw new Error('لا تملك صلاحية الاستيراد لهذه الجهة');
                 }
 
-                // Set default affiliationYear to 2023 if missing or invalid
-                const affiliationYear = Number(row.affiliationYear) || 2023;
+                // Use provided year, or defaultYear, or fallback to current year
+                const affiliationYear = Number(row.affiliationYear) || fallbackYear;
 
                 const statusInput = row.status?.toUpperCase() || 'ACTIVE';
                 const status = statusInput === 'INACTIVE' ? 'INACTIVE' : statusInput === 'DECEASED' ? 'DECEASED' : 'ACTIVE';

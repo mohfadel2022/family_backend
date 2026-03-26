@@ -20,6 +20,10 @@ export const checkPermission = (permissions: string[]) => {
             return res.status(401).json({ error: 'Unauthorized' });
         }
 
+        if (req.user.role === 'ADMIN') {
+            return next();
+        }
+
         const hasPermission = permissions.some(p => req.user.permissions?.includes(p));
 
         if (!hasPermission) {

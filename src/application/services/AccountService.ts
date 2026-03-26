@@ -11,12 +11,27 @@ export class AccountService {
     return ids;
   }
   async createAccount(data: { name: string, code: string, type: AccountType, currencyId: string, branchId: string, parentId?: string }) {
+    const existing = await prisma.account.findUnique({ where: { code: data.code } });
+    if (existing) {
+      throw new Error('كود الحساب موجود مسبقاً، يرجى اختيار كود آخر');
+    }
     return await prisma.account.create({
       data
     });
   }
 
   async updateAccount(id: string, data: { name?: string, code?: string, type?: AccountType, currencyId?: string, branchId?: string, parentId?: string }) {
+    if (data.code) {
+      const existing = await prisma.account.findFirst({
+        where: {
+          code: data.code,
+          NOT: { id }
+        }
+      });
+      if (existing) {
+        throw new Error('كود الحساب موجود مسبقاً، يرجى اختيار كود آخر');
+      }
+    }
     return await prisma.account.update({
       where: { id },
       data
@@ -326,6 +341,9 @@ export class AccountService {
 
     const descendantIds = await this.getDescendantIds(accountId);
     const accountIds = [accountId, ...descendantIds];
+    const isNormalDebit = ['ASSET', 'EXPENSE'].includes(account.type);
+    const accountCurrencyId = account.currencyId;
+    const accountCurrencyRate = Number(account.currency.exchangeRate) || 1;
 
     const journalLines = await prisma.journalLine.findMany({
       where: {
@@ -340,7 +358,8 @@ export class AccountService {
       },
       include: {
         journalEntry: true,
-        account: true
+        account: { include: { currency: true } },
+        currency: true
       },
       orderBy: {
         journalEntry: {
@@ -350,7 +369,7 @@ export class AccountService {
     });
 
     // Calculate opening balance (before startDate)
-    const previousLines = await prisma.journalLine.findMany({
+    const previousLines = startDate ? await prisma.journalLine.findMany({
       where: {
         accountId: { in: accountIds },
         journalEntry: {
@@ -360,27 +379,50 @@ export class AccountService {
           }
         }
       }
-    });
+    }) : [];
 
-    const prevDebit = previousLines.reduce((sum: number, l: any) => sum + Number(l.debit), 0);
-    const prevCredit = previousLines.reduce((sum: number, l: any) => sum + Number(l.credit), 0);
+    const prevBaseDebit = previousLines.reduce((sum: number, l: any) => sum + Number(l.baseDebit), 0);
+    const prevBaseCredit = previousLines.reduce((sum: number, l: any) => sum + Number(l.baseCredit), 0);
+    const openingBaseBalance = isNormalDebit ? prevBaseDebit - prevBaseCredit : prevBaseCredit - prevBaseDebit;
 
-    let openingBalance = 0;
-    if (['ASSET', 'EXPENSE'].includes(account.type)) {
-      openingBalance = prevDebit - prevCredit;
+    // For account-currency opening balance: 
+    // If leaf/homogeneous currency -> sum original debit/credit.
+    // Otherwise -> convert from consolidated base balance.
+    const hasMixedInOpening = previousLines.some(l => l.currencyId !== accountCurrencyId);
+    let openingBalance: number;
+    if (hasMixedInOpening) {
+        openingBalance = accountCurrencyRate !== 0 ? openingBaseBalance / accountCurrencyRate : 0;
     } else {
-      openingBalance = prevCredit - prevDebit;
+        const prevDebit = previousLines.reduce((sum: number, l: any) => sum + Number(l.debit), 0);
+        const prevCredit = previousLines.reduce((sum: number, l: any) => sum + Number(l.credit), 0);
+        openingBalance = isNormalDebit ? prevDebit - prevCredit : prevCredit - prevDebit;
     }
 
     let runningBalance = openingBalance;
-    const entries = journalLines.map((line: any) => {
-      const debit = Number(line.debit);
-      const credit = Number(line.credit);
+    let runningBaseBalance = openingBaseBalance;
 
-      if (['ASSET', 'EXPENSE'].includes(account.type)) {
+    const entries = journalLines.map((line: any) => {
+      const baseDebit = Number(line.baseDebit);
+      const baseCredit = Number(line.baseCredit);
+      
+      let debit: number;
+      let credit: number;
+
+      // Use original amount if same currency to avoid rounding issues, otherwise convert from base
+      if (line.accountId === accountId || line.currencyId === accountCurrencyId) {
+          debit = Number(line.debit);
+          credit = Number(line.credit);
+      } else {
+          debit = accountCurrencyRate !== 0 ? baseDebit / accountCurrencyRate : 0;
+          credit = accountCurrencyRate !== 0 ? baseCredit / accountCurrencyRate : 0;
+      }
+
+      if (isNormalDebit) {
         runningBalance += (debit - credit);
+        runningBaseBalance += (baseDebit - baseCredit);
       } else {
         runningBalance += (credit - debit);
+        runningBaseBalance += (baseCredit - baseDebit);
       }
 
       return {
@@ -389,17 +431,30 @@ export class AccountService {
         description: line.journalEntry.description,
         debit,
         credit,
-        balance: runningBalance
+        baseDebit,
+        baseCredit,
+        balance: runningBalance,
+        baseBalance: runningBaseBalance,
+        originalCurrency: line.currency.code,
+        originalCurrencyName: line.currency.name,
+        originalCurrencySymbol: line.currency.symbol,
+        originalDebit: line.debit,
+        originalCredit: line.credit
       };
     });
 
     return {
       accountName: account.name,
       accountCode: account.code,
-      currency: account.currency.code,
+      currency: account.currency?.code || '---',
+      currencyName: account.currency?.name || '',
+      currencySymbol: account.currency?.symbol || '',
+      isBase: account.currency?.isBase || false,
       openingBalance,
+      openingBaseBalance,
       entries,
-      closingBalance: runningBalance
+      closingBalance: runningBalance,
+      closingBaseBalance: runningBaseBalance
     };
   }
 

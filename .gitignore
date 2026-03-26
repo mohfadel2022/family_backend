@@ -4,3 +4,5 @@ dist
 *.db
 *.db-journal
 dev.db
+logs
+scripts

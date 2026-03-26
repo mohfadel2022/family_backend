@@ -1,0 +1,30 @@
+[2026-03-21T19:42:31.263Z] Received /restore request. Body keys: data
+[2026-03-21T19:42:31.273Z] Data object keys: version, exportedAt, data
+[2026-03-21T19:42:31.275Z] Detected versioned backup format. Drilling into 'data' property.
+[2026-03-21T19:42:31.278Z] Running validateBackupData. Keys: currencies, branches, accounts, periods, journalEntries, journalLines, users, roles, permissions, rolePermissions, entities, members, memberSubscriptions, attachments, subscriptionCollections, subscriptionCollectionItems, importReports, auditLogs
+[2026-03-21T19:42:31.280Z] Checking counts: Currencies=4, Branches=1, Roles=3
+[2026-03-21T19:42:31.281Z] Validation PASSED successfully.
+[2026-03-21T19:42:31.325Z] Emergency rollback backup created successfully.
+[2026-03-21T19:42:31.329Z] Starting performRestoration. Keys received: currencies, branches, accounts, periods, journalEntries, journalLines, users, roles, permissions, rolePermissions, entities, members, memberSubscriptions, attachments, subscriptionCollections, subscriptionCollectionItems, importReports, auditLogs
+[2026-03-21T19:42:31.347Z] Transaction started. Clearing existing data...
+[2026-03-21T19:46:51.911Z] Received /restore request. Body keys: data
+[2026-03-21T19:46:51.920Z] Data object keys: version, exportedAt, data
+[2026-03-21T19:46:51.924Z] Detected versioned backup format. Drilling into 'data' property.
+[2026-03-21T19:46:51.935Z] Running validateBackupData. Keys: currencies, branches, accounts, periods, journalEntries, journalLines, users, roles, permissions, rolePermissions, entities, members, memberSubscriptions, attachments, subscriptionCollections, subscriptionCollectionItems, importReports, auditLogs
+[2026-03-21T19:46:51.940Z] Checking counts: Currencies=4, Branches=1, Roles=3
+[2026-03-21T19:46:51.942Z] Validation PASSED successfully.
+[2026-03-21T19:46:51.986Z] Emergency rollback backup created successfully.
+[2026-03-21T19:46:51.989Z] Starting performRestoration. Keys received: currencies, branches, accounts, periods, journalEntries, journalLines, users, roles, permissions, rolePermissions, entities, members, memberSubscriptions, attachments, subscriptionCollections, subscriptionCollectionItems, importReports, auditLogs
+[2026-03-21T19:46:52.003Z] Transaction started. Clearing existing data...
+[2026-03-21T19:46:52.048Z] Database cleared successfully.
+[2026-03-21T19:46:52.179Z] Re-inserting components: 
+      Currencies: 4
+      Branches: 1
+      Roles: 3
+      Permissions: 87
+      Entities: 9
+      Members: 315
+      Accounts: 33
+      Journal Entries: 7
+    
+[2026-03-21T19:46:53.143Z] Restoration transaction completed successfully.

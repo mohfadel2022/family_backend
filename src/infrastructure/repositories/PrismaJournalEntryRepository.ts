@@ -1,11 +1,26 @@
 import { PrismaClient } from '@prisma/client';
 import prisma from '../database/prisma';
 import { JournalEntryDTO, AccountingValidator } from '../../domain/models/AccountingTypes';
+import fs from 'fs';
+import path from 'path';
+import { promisify } from 'util';
+
+const unlinkAsync = promisify(fs.unlink);
 
 export class PrismaJournalEntryRepository {
   async create(user: { id: string, role: string }, data: JournalEntryDTO) {
     return prisma.$transaction(async (tx: any) => {
-      // 0. Check if period is locked
+      // 0. Check branch permission for ENCARGADO
+      if (user.role === 'ENCARGADO') {
+        const allowedBranch = await tx.entity.findFirst({
+          where: { userId: user.id, branchId: data.branchId }
+        });
+        if (!allowedBranch) {
+          throw new Error('Forbidden: You are not authorized to create vouchers for this branch');
+        }
+      }
+
+      // 0.1 Check if period is locked
       const period = await tx.period.findFirst({
         where: {
           startDate: { lte: data.date },
@@ -112,7 +127,8 @@ export class PrismaJournalEntryRepository {
           }
         },
         branch: true,
-        attachments: true
+        attachments: true,
+        subscriptionCollection: true
       },
       orderBy: [
         { date: 'desc' },
@@ -134,7 +150,8 @@ export class PrismaJournalEntryRepository {
         attachments: true,
         memberSubscriptions: {
           include: { member: { include: { entity: true } } }
-        }
+        },
+        subscriptionCollection: true
       }
     });
 
@@ -157,9 +174,16 @@ export class PrismaJournalEntryRepository {
     return prisma.$transaction(async (tx: any) => {
       const existing = await tx.journalEntry.findUnique({
         where: { id },
-        include: { memberSubscriptions: { include: { member: { include: { entity: true } } } } }
+        include: { 
+          memberSubscriptions: { include: { member: { include: { entity: true } } } },
+          subscriptionCollection: true
+        }
       });
       if (!existing) throw new Error('Entry not found');
+
+      if (existing.subscriptionCollection) {
+        throw new Error('عذراً، لا يمكن تعديل هذا السند مباشرة لأنه مرتبط بعملية تحصيل اشتراكات. يرجى تعديله من صفحة تحصيل الاشتراكات.');
+      }
 
       if (user.role === 'ENCARGADO') {
         const isOwner = existing.createdBy === user.id;
@@ -182,6 +206,17 @@ export class PrismaJournalEntryRepository {
         }
       });
       if (period) throw new Error(`The date ${data.date.toISOString().split('T')[0]} is within a locked period: ${period.name}`);
+
+      // Fetch old attachments to delete physical files
+      const oldAttachments = await tx.attachment.findMany({ where: { journalEntryId: id } });
+      for (const att of oldAttachments) {
+        if (att.fileUrl) {
+          const filePath = path.join(process.cwd(), att.fileUrl.startsWith('/') ? att.fileUrl.substring(1) : att.fileUrl);
+          if (fs.existsSync(filePath)) {
+            await unlinkAsync(filePath).catch(err => console.error(`Failed to delete file during update: ${filePath}`, err));
+          }
+        }
+      }
 
       // Delete old lines and create new ones
       await tx.journalLine.deleteMany({ where: { journalEntryId: id } });
@@ -226,9 +261,16 @@ export class PrismaJournalEntryRepository {
   async delete(user: { id: string, role: string }, id: string) {
     const existing = await prisma.journalEntry.findUnique({
       where: { id },
-      include: { memberSubscriptions: { include: { member: { include: { entity: true } } } } }
+      include: { 
+        memberSubscriptions: { include: { member: { include: { entity: true } } } },
+        subscriptionCollection: true
+      }
     });
     if (!existing) throw new Error('Entry not found');
+
+    if (existing.subscriptionCollection) {
+      throw new Error('عذراً، لا يمكن حذف هذا السند مباشرة لأنه مرتبط بعملية تحصيل اشتراكات. يرجى حذفه من صفحة تحصيل الاشتراكات.');
+    }
 
     if (user.role === 'ENCARGADO') {
       const isOwner = existing.createdBy === user.id;
@@ -241,6 +283,17 @@ export class PrismaJournalEntryRepository {
     }
 
     if (existing.status === 'POSTED') throw new Error('Cannot delete posted entry');
+
+    // Fetch and delete physical files
+    const attachments = await prisma.attachment.findMany({ where: { journalEntryId: id } });
+    for (const att of attachments) {
+      if (att.fileUrl) {
+        const filePath = path.join(process.cwd(), att.fileUrl.startsWith('/') ? att.fileUrl.substring(1) : att.fileUrl);
+        if (fs.existsSync(filePath)) {
+          await unlinkAsync(filePath).catch(err => console.error(`Failed to delete file during deletion: ${filePath}`, err));
+        }
+      }
+    }
 
     return prisma.journalEntry.delete({ where: { id } });
   }
