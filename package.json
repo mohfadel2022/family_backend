@@ -2,15 +2,15 @@
   "name": "backend",
   "version": "1.0.0",
   "description": " ",
-  "main": "index.js",
+  "main": "dist/interfaces/http/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only --project tsconfig.json src/interfaces/http/server.ts",
-    "build": "chmod +x node_modules/.bin/prisma && npx prisma generate && tsc",
+    "build": "npx prisma generate && tsc",
     "start": "npx prisma migrate deploy && node dist/interfaces/http/server.js",
     "prisma:generate": "npx prisma generate",
     "prisma:migrate": "npx prisma migrate dev",
     "test": "jest",
-    "postinstall": "chmod +x node_modules/.bin/prisma && npx prisma generate"
+    "postinstall": "npx prisma generate"
   },
   "keywords": [],
   "author": "",
