@@ -81,8 +81,11 @@ router.delete('/entities/:id', authMiddleware, checkPermission(['ENTITIES_DELETE
 // Members CRUD
 router.get('/members', authMiddleware, checkPermission(['MEMBERS_VIEW']), async (req: any, res) => {
     try {
-        const entityId = req.query.entityId as string;
-        const members = await service.getMembers(req.user, entityId);
+        const { entityId, paymentEntityId } = req.query;
+        const members = await service.getMembers(req.user, { 
+            entityId: entityId as string, 
+            paymentEntityId: paymentEntityId as string 
+        });
         res.json(members);
     } catch (error: any) {
         res.status(500).json({ error: error.message });
@@ -92,11 +95,24 @@ router.get('/members', authMiddleware, checkPermission(['MEMBERS_VIEW']), async 
 router.post('/members', authMiddleware, checkPermission(['MEMBERS_CREATE']), async (req, res) => {
     try {
         console.log('Create Member Body:', req.body);
-        const { name, entityId, affiliationYear, stoppedAt, status, phone, managerId } = req.body;
+        const { name, entityId, paymentEntityId, affiliationYear, stoppedAt, status, phone, managerId } = req.body;
 
         // Validation: require stoppedAt if status is not ACTIVE
         if ((status === 'DECEASED' || status === 'INACTIVE') && (!stoppedAt || stoppedAt === 'null')) {
             return res.status(400).json({ error: 'عذراً، يجب تحديد سنة التوقف أو الوفاة للحالات غير النشطة' });
+        }
+
+        const currentYear = new Date().getFullYear();
+        const affYearNum = Number(affiliationYear);
+        if (affYearNum && (affYearNum < 2010 || affYearNum > 2100)) {
+            return res.status(400).json({ error: 'سنة الانتساب يجب أن تكون بين 2010 و 2100' });
+        }
+
+        if (stoppedAt && stoppedAt !== 'null') {
+            const stopYear = new Date(stoppedAt).getFullYear();
+            if (stopYear < 2010 || stopYear > 2100) {
+                return res.status(400).json({ error: 'سنة التوقف أو الوفاة يجب أن تكون بين 2010 و 2100' });
+            }
         }
 
         if ((req as any).user.role === 'ENCARGADO') {
@@ -110,6 +126,7 @@ router.post('/members', authMiddleware, checkPermission(['MEMBERS_CREATE']), asy
             data: {
                 name: name.trim(),
                 entityId,
+                paymentEntityId: (paymentEntityId && paymentEntityId !== 'same') ? paymentEntityId : entityId,
                 affiliationYear: Number(affiliationYear) || new Date().getFullYear(),
                 status: (status && status !== 'null') ? status : 'ACTIVE',
                 stoppedAt: stoppedAt ? new Date(stoppedAt) : null,
@@ -155,23 +172,43 @@ router.post('/members', authMiddleware, checkPermission(['MEMBERS_CREATE']), asy
 router.put('/members/:id', authMiddleware, checkPermission(['MEMBERS_EDIT']), async (req, res) => {
     try {
         console.log('Update Member Body:', req.body);
-        const { name, entityId, affiliationYear, stoppedAt, status, phone, managerId } = req.body;
+        const { name, entityId, paymentEntityId, affiliationYear, stoppedAt, status, phone, managerId } = req.body;
 
         // Validation: require stoppedAt if status is not ACTIVE
         if ((status === 'DECEASED' || status === 'INACTIVE') && (!stoppedAt || stoppedAt === 'null')) {
             return res.status(400).json({ error: 'عذراً، يجب تحديد سنة التوقف أو الوفاة للحالات غير النشطة' });
         }
 
+        const affYearNum = Number(affiliationYear);
+        if (affYearNum && (affYearNum < 2010 || affYearNum > 2100)) {
+            return res.status(400).json({ error: 'سنة الانتساب يجب أن تكون بين 2010 و 2100' });
+        }
+
+        if (stoppedAt && stoppedAt !== 'null') {
+            const stopYear = new Date(stoppedAt).getFullYear();
+            if (stopYear < 2010 || stopYear > 2100) {
+                return res.status(400).json({ error: 'سنة التوقف أو الوفاة يجب أن تكون بين 2010 و 2100' });
+            }
+        }
+
+        const oldMember = await prisma.member.findUnique({
+            where: { id: req.params.id }
+        });
+
+        if (!oldMember) {
+            return res.status(404).json({ error: 'العضو غير موجود' });
+        }
+
         if ((req as any).user.role === 'ENCARGADO') {
-            const member = await prisma.member.findUnique({
+            const memberWithEntity = await prisma.member.findUnique({
                 where: { id: req.params.id },
                 include: { entity: true }
             });
-            if (!member || member.entity.userId !== (req as any).user.id) {
+            if (!memberWithEntity || memberWithEntity.entity.userId !== (req as any).user.id) {
                 return res.status(403).json({ error: 'لا تملك صلاحية تعديل هذا العضو' });
             }
             // If changing entity
-            if (entityId && entityId !== member.entityId) {
+            if (entityId && entityId !== oldMember.entityId) {
                 const ownNewEntity = await prisma.entity.findFirst({
                     where: { id: entityId, userId: (req as any).user.id }
                 });
@@ -184,6 +221,7 @@ router.put('/members/:id', authMiddleware, checkPermission(['MEMBERS_EDIT']), as
             data: {
                 name: name.trim(),
                 entityId,
+                paymentEntityId: (paymentEntityId && paymentEntityId !== 'same') ? paymentEntityId : entityId,
                 affiliationYear: Number(affiliationYear) || new Date().getFullYear(),
                 status: (status && status !== 'null') ? status : 'ACTIVE',
                 stoppedAt: (stoppedAt && stoppedAt !== 'null') ? new Date(stoppedAt) : null,
@@ -191,16 +229,50 @@ router.put('/members/:id', authMiddleware, checkPermission(['MEMBERS_EDIT']), as
                 managerId: managerId || null
             }
         });
-        // Audit Logging
-        await prisma.auditLog.create({
-            data: {
-                userId: (req as any).user.id,
-                action: 'UPDATE_MEMBER',
-                entity: 'Member',
-                entityId: member.id,
-                details: { name: member.name }
-            }
-        });
+
+        // Audit Logging: Only for entity and year changes
+        const oldStoppedYear = oldMember.stoppedAt ? new Date(oldMember.stoppedAt).getFullYear() : null;
+        const newStoppedYear = member.stoppedAt ? new Date(member.stoppedAt).getFullYear() : null;
+
+        const changes: any = {};
+        
+        if (oldMember.entityId !== member.entityId) {
+            const oldE = await prisma.entity.findUnique({ where: { id: oldMember.entityId }, select: { name: true } });
+            const newE = await prisma.entity.findUnique({ where: { id: member.entityId }, select: { name: true } });
+            changes.entityId = { old: oldE?.name || oldMember.entityId, new: newE?.name || member.entityId };
+        }
+        
+        if (oldMember.paymentEntityId !== member.paymentEntityId) {
+            const oldE = oldMember.paymentEntityId ? await prisma.entity.findUnique({ where: { id: oldMember.paymentEntityId }, select: { name: true } }) : null;
+            const newE = member.paymentEntityId ? await prisma.entity.findUnique({ where: { id: member.paymentEntityId }, select: { name: true } }) : null;
+            changes.paymentEntityId = { 
+                old: oldE?.name || (oldMember.paymentEntityId ? 'مجهول' : 'نفس جهة السكن'), 
+                new: newE?.name || (member.paymentEntityId ? 'مجهول' : 'نفس جهة السكن') 
+            };
+        }
+        
+        if (oldMember.affiliationYear !== member.affiliationYear) {
+            changes.affiliationYear = { old: oldMember.affiliationYear, new: member.affiliationYear };
+        }
+        
+        if (oldStoppedYear !== newStoppedYear) {
+            changes.stoppedAt = { old: oldStoppedYear, new: newStoppedYear };
+        }
+
+        if (Object.keys(changes).length > 0) {
+            await prisma.auditLog.create({
+                data: {
+                    userId: (req as any).user.id,
+                    action: 'UPDATE_MEMBER',
+                    entity: 'Member',
+                    entityId: member.id,
+                    details: { 
+                        name: member.name,
+                        changes
+                    }
+                }
+            });
+        }
 
         res.json(member);
     } catch (error: any) {
@@ -311,15 +383,20 @@ router.post('/members/exemptions', authMiddleware, checkPermission(['MEMBERS_EDI
         }
 
         // Check if subscription already exists for this year
+        const yearNum = Number(year);
+        if (yearNum < 2010 || yearNum > 2100) {
+            return res.status(400).json({ error: 'السنة يجب أن تكون بين 2010 و 2100' });
+        }
+
         const existingSub = await prisma.memberSubscription.findFirst({
-            where: { memberId, year: Number(year) }
+            where: { memberId, year: yearNum }
         });
         if (existingSub) {
             return res.status(400).json({ error: 'لا يمكن إضافة إعفاء لسنة تم سدادها بالفعل' });
         }
 
         const exemption = await prisma.memberExemption.create({
-            data: { memberId, year: Number(year), reason }
+            data: { memberId, year: yearNum, reason }
         });
 
         // Audit Logging
@@ -488,6 +565,7 @@ const pivotService = new SubscriptionReportService();
 // Pivot Report
 router.get('/reports/pivot', authMiddleware, checkPermission(['REPORTS_PIVOT', 'REPORTS_SUBSCRIPTIONS_VIEW']), async (req: any, res) => {
     try {
+        // Grouping is now handled on the client-side
         const report = await pivotService.getSubscriptionPivot(req.user);
         res.json(report);
     } catch (error: any) {

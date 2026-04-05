@@ -64,4 +64,27 @@ router.put('/read-all', authMiddleware, async (req: any, res) => {
     }
 });
 
+// Mark a specific notification as completed (for TASKS)
+router.put('/:id/complete', authMiddleware, async (req: any, res) => {
+    try {
+        const { id } = req.params;
+        const userId = req.user?.id;
+        if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+        const notification = await prisma.notification.updateMany({
+            where: { id, userId },
+            data: { isCompleted: true, isRead: true }
+        });
+
+        if (notification.count === 0) {
+             return res.status(404).json({ error: 'Notification not found' });
+        }
+
+        res.json({ message: 'Marked as completed' });
+    } catch (error) {
+        console.error('Complete notification error:', error);
+        res.status(500).json({ error: 'Failed to mark notification as completed' });
+    }
+});
+
 export default router;

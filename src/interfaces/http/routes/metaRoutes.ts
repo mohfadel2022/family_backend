@@ -176,9 +176,16 @@ router.post('/auth/reset-password', async (req, res) => {
 });
 
 // ─── Audit Logs ──────────────────────────────────────────────────────────────
-router.get('/audit-logs', authMiddleware, checkPermission(['AUDIT_VIEW']), async (req, res) => {
+router.get('/audit-logs', authMiddleware, checkPermission(['AUDIT_LOGS_VIEW']), async (req, res) => {
   try {
+    const { entityId } = req.query;
+    const where: any = {};
+    if (entityId) {
+      where.entityId = entityId;
+    }
+
     const logs = await prisma.auditLog.findMany({
+      where,
       orderBy: { createdAt: 'desc' },
       take: 100, // Fetch the latest 100 logs
       include: {
@@ -1203,6 +1210,37 @@ router.get('/reports/exchange-report', authMiddleware, checkPermission(['REPORTS
   }
 });
 
+router.get('/reports/currency-gains', authMiddleware, checkPermission(['REPORTS_CURRENCY_GAINS_VIEW', 'REPORTS_EXCHANGE', 'REPORTS_EXCHANGE_VIEW']), async (req: any, res) => {
+  try {
+    let branchId = req.query.branchId as string;
+    const date = req.query.date ? new Date(req.query.date as string) : new Date();
+
+    if (req.user.role === 'ENCARGADO') {
+      const allowedBranches = await prisma.entity.findMany({
+        where: { userId: req.user.id },
+        select: { branchId: true }
+      });
+      const allowedIds = allowedBranches.map(e => e.branchId);
+
+      if (!branchId && allowedIds.length === 1) {
+        branchId = allowedIds[0];
+      } else if (branchId && !allowedIds.includes(branchId)) {
+        return res.status(403).json({ error: 'ليس لديك صلاحية الوصول لتقارير هذا الفرع' });
+      } else if (!branchId) {
+        return res.status(400).json({ error: 'يجب تحديد الفرع' });
+      }
+    }
+
+    const report = await exchangeService.getUnrealizedGainsLosses(branchId, date);
+    res.json(report);
+  } catch (error: any) {
+    const errorMsg = error.message || "Internal Server Error";
+    console.error("META ROUTE ERROR:", error);
+    res.status(500).json({ error: errorMsg });
+  }
+});
+
+
 // Periods
 router.get('/periods', authMiddleware, checkPermission(['PERIODS_VIEW']), async (req, res) => {
   try {
@@ -1359,6 +1397,14 @@ router.get('/backup', authMiddleware, checkPermission(['DB_BACKUP']), async (req
         data: { id: 'singleton', lastBackupAt: now }
       });
     }
+
+    // Mark backup tasks as completed/removed when a backup is done
+    await prisma.notification.deleteMany({
+      where: {
+        type: 'BACKUP_OVERDUE',
+        category: 'TASK'
+      }
+    });
 
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Content-Disposition', `attachment; filename="family-fund-backup-${new Date().toISOString().split('T')[0]}.json"`);
@@ -1885,6 +1931,33 @@ router.get('/system-config', authMiddleware, async (req, res) => {
         data: { id: 'singleton', backupFrequency: 'NONE' }
       });
     }
+
+    // Check if backup is overdue and create notification
+    if (config.nextBackupAt && config.backupFrequency !== 'NONE' && new Date(config.nextBackupAt) < new Date()) {
+      const userId = (req as any).user.id;
+      const existing = await prisma.notification.findFirst({
+        where: {
+          userId,
+          type: 'BACKUP_OVERDUE',
+          category: 'TASK',
+          isCompleted: false
+        }
+      });
+
+      if (!existing) {
+        await prisma.notification.create({
+          data: {
+            userId,
+            title: 'موعد النسخ الاحتياطي',
+            message: `لقد حان موعد إجراء النسخة الاحتياطية الدورية (${config.backupFrequency}).`,
+            category: 'TASK',
+            type: 'BACKUP_OVERDUE',
+            link: '/settings'
+          }
+        });
+      }
+    }
+
     res.json(config);
   } catch (error: any) {
     const errorMsg = error.message || "Internal Server Error";

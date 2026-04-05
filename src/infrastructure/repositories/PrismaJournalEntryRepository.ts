@@ -38,8 +38,63 @@ export class PrismaJournalEntryRepository {
       });
       const nextNumber = (lastEntry?.entryNumber || 0) + 1;
 
-      // 2. Calculate totalAmount (sum of baseDebit)
-      const totalAmount = data.lines.reduce((sum, line) => sum + Number(line.baseDebit), 0);
+      // 2. Validate linked accounts and securely calculate base amounts
+      const accountIds = data.lines.map(l => l.accountId);
+      const accounts = await tx.account.findMany({ where: { id: { in: accountIds } } });
+      const accountMap = new Map<string, any>(accounts.map((a: any) => [a.id, a]));
+
+      // 1.1 Validate cost center hierarchy for Receipts and Payments
+      if (data.type === 'RECEIPT' || data.type === 'PAYMENT') {
+        const allCCIds = data.lines.flatMap(l => l.costCenters?.map(cc => cc.costCenterId) || []).filter(Boolean);
+        if (allCCIds.length > 0) {
+          const costCenters = await tx.costCenter.findMany({
+            where: { id: { in: allCCIds } },
+            select: { id: true, parentId: true, name: true }
+          });
+          const ccMap = new Map<string, { id: string, parentId: string | null, name: string }>(
+            costCenters.map((cc: any) => [cc.id, cc])
+          );
+          for (const line of data.lines) {
+            for (const ccDist of (line.costCenters || [])) {
+              const cc = ccMap.get(ccDist.costCenterId);
+              if (cc && !cc.parentId) {
+                throw new Error(`مركز التكلفة "${cc.name}" رئيسي. يجب اختيار مركز تكلفة فرعي لسندات القبض والصرف.`);
+              }
+            }
+          }
+        }
+      }
+
+      let totalAmount = 0;
+      const validatedLines = [];
+
+      for (const line of data.lines) {
+        const account = accountMap.get(line.accountId);
+        if (!account) throw new Error('Account not found');
+
+
+
+        // Securely calculate base amounts
+        const baseDebit = Number(line.debit) * Number(line.exchangeRate);
+        const baseCredit = Number(line.credit) * Number(line.exchangeRate);
+        totalAmount += baseDebit;
+
+        validatedLines.push({
+          accountId: line.accountId,
+          currencyId: line.currencyId,
+          debit: line.debit,
+          credit: line.credit,
+          exchangeRate: line.exchangeRate,
+          baseDebit,
+          baseCredit,
+          costCenters: {
+            create: (line.costCenters || []).map(cc => ({
+              costCenterId: cc.costCenterId,
+              percentage: cc.percentage
+            }))
+          }
+        });
+      }
 
       // 3. Create Journal Entry
       const entry = await tx.journalEntry.create({
@@ -53,15 +108,7 @@ export class PrismaJournalEntryRepository {
           status: 'DRAFT',
           totalAmount,
           lines: {
-            create: data.lines.map(line => ({
-              accountId: line.accountId,
-              currencyId: line.currencyId,
-              debit: line.debit,
-              credit: line.credit,
-              exchangeRate: line.exchangeRate,
-              baseDebit: line.baseDebit,
-              baseCredit: line.baseCredit,
-            }))
+            create: validatedLines
           },
           attachments: {
             create: data.attachments?.map(att => ({
@@ -73,7 +120,13 @@ export class PrismaJournalEntryRepository {
           }
         },
         include: {
-          lines: true,
+          lines: {
+            include: {
+              account: true,
+              currency: true,
+              costCenters: { include: { costCenter: true } }
+            }
+          },
           attachments: true
         }
       });
@@ -123,7 +176,8 @@ export class PrismaJournalEntryRepository {
         lines: {
           include: {
             account: true,
-            currency: true
+            currency: true,
+            costCenters: { include: { costCenter: true } }
           }
         },
         branch: true,
@@ -144,7 +198,8 @@ export class PrismaJournalEntryRepository {
         lines: {
           include: {
             account: true,
-            currency: true
+            currency: true,
+            costCenters: { include: { costCenter: true } }
           }
         },
         attachments: true,
@@ -222,8 +277,63 @@ export class PrismaJournalEntryRepository {
       await tx.journalLine.deleteMany({ where: { journalEntryId: id } });
       await tx.attachment.deleteMany({ where: { journalEntryId: id } });
 
-      // Calculate totalAmount
-      const totalAmount = data.lines.reduce((sum, line) => sum + Number(line.baseDebit), 0);
+      // Calculate totalAmount securely and validate cost centers
+      const accountIds = data.lines.map(l => l.accountId);
+      const accounts = await tx.account.findMany({ where: { id: { in: accountIds } } });
+      const accountMap = new Map<string, any>(accounts.map((a: any) => [a.id, a]));
+
+      // 1.1 Validate cost center hierarchy for Receipts and Payments
+      if (data.type === 'RECEIPT' || data.type === 'PAYMENT') {
+        const allCCIds = data.lines.flatMap(l => l.costCenters?.map(cc => cc.costCenterId) || []).filter(Boolean);
+        if (allCCIds.length > 0) {
+          const costCenters = await tx.costCenter.findMany({
+            where: { id: { in: allCCIds } },
+            select: { id: true, parentId: true, name: true }
+          });
+          const ccMap = new Map<string, { id: string, parentId: string | null, name: string }>(
+            costCenters.map((cc: any) => [cc.id, cc])
+          );
+          for (const line of data.lines) {
+            for (const ccDist of (line.costCenters || [])) {
+              const cc = ccMap.get(ccDist.costCenterId);
+              if (cc && !cc.parentId) {
+                throw new Error(`مركز التكلفة "${cc.name}" رئيسي. يجب اختيار مركز تكلفة فرعي لسندات القبض والصرف.`);
+              }
+            }
+          }
+        }
+      }
+
+      let totalAmount = 0;
+      const validatedLines = [];
+
+      for (const line of data.lines) {
+        const account = accountMap.get(line.accountId);
+        if (!account) throw new Error('Account not found');
+
+
+
+        // Securely calculate base amounts
+        const baseDebit = Number(line.debit) * Number(line.exchangeRate);
+        const baseCredit = Number(line.credit) * Number(line.exchangeRate);
+        totalAmount += baseDebit;
+
+        validatedLines.push({
+          accountId: line.accountId,
+          currencyId: line.currencyId,
+          debit: line.debit,
+          credit: line.credit,
+          exchangeRate: line.exchangeRate,
+          baseDebit,
+          baseCredit,
+          costCenters: {
+            create: (line.costCenters || []).map(cc => ({
+              costCenterId: cc.costCenterId,
+              percentage: cc.percentage
+            }))
+          }
+        });
+      }
 
       return tx.journalEntry.update({
         where: { id },
@@ -234,15 +344,7 @@ export class PrismaJournalEntryRepository {
           branchId: data.branchId,
           totalAmount,
           lines: {
-            create: data.lines.map(line => ({
-              accountId: line.accountId,
-              currencyId: line.currencyId,
-              debit: line.debit,
-              credit: line.credit,
-              exchangeRate: line.exchangeRate,
-              baseDebit: line.baseDebit,
-              baseCredit: line.baseCredit,
-            }))
+            create: validatedLines
           },
           attachments: {
             create: data.attachments?.map(att => ({
@@ -253,7 +355,16 @@ export class PrismaJournalEntryRepository {
             })) || []
           }
         },
-        include: { lines: true, attachments: true }
+        include: {
+          lines: {
+            include: {
+              account: true,
+              currency: true,
+              costCenters: { include: { costCenter: true } }
+            }
+          },
+          attachments: true
+        }
       });
     });
   }

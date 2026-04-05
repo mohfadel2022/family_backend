@@ -12,6 +12,7 @@ export class SubscriptionReportService {
             where,
             include: {
                 entity: { include: { currency: true } },
+                paymentEntity: { include: { currency: true } },
                 subscriptions: {
                     include: {
                         journalEntry: {
@@ -27,10 +28,7 @@ export class SubscriptionReportService {
                 },
                 exemptions: true
             },
-            orderBy: [
-                { entity: { name: 'asc' } },
-                { name: 'asc' }
-            ]
+            orderBy: { name: 'asc' }
         });
 
         // 2. Determine the range of years
@@ -41,24 +39,11 @@ export class SubscriptionReportService {
             if (m.affiliationYear) yearsSet.add(m.affiliationYear);
             if (m.stoppedAt) yearsSet.add(new Date(m.stoppedAt).getFullYear());
         });
-
-        // Add current year just in case
         yearsSet.add(new Date().getFullYear());
-
         const sortedYears = Array.from(yearsSet).sort((a, b) => a - b);
 
-        // 3. Group by Entity
-        const entitiesMap = new Map();
-
-        members.forEach(member => {
-            const entityName = member.entity.name;
-            if (!entitiesMap.has(entityName)) {
-                entitiesMap.set(entityName, {
-                    entityName: entityName,
-                    members: []
-                });
-            }
-
+        // 3. Prepare flat members list with all necessary info for frontend grouping
+        const flatMembers = members.map(member => {
             // Calculations for observations
             let observations = '';
             if (member.status === 'DECEASED') {
@@ -93,20 +78,22 @@ export class SubscriptionReportService {
                 }
             });
 
-            entitiesMap.get(entityName).members.push({
+            return {
                 id: member.id,
                 name: member.name,
                 status: member.status,
                 affiliationYear: member.affiliationYear,
                 stoppedAt: member.stoppedAt,
                 subscriptions: subMap,
-                observations: observations
-            });
+                observations: observations,
+                residenceName: member.entity.name,
+                paymentName: member.paymentEntity?.name || member.entity.name
+            };
         });
 
         return {
             years: sortedYears,
-            data: Array.from(entitiesMap.values())
+            members: flatMembers
         };
     }
 

@@ -82,7 +82,7 @@ export class SubscriptionService {
             const member = collection.items[0]?.member;
             if (member) {
                 const ownEntity = await prisma.entity.findFirst({
-                    where: { id: member.entityId, userId: user.id }
+                    where: { id: member.paymentEntityId || member.entityId, userId: user.id }
                 });
                 if (!ownEntity) throw new Error('لا تملك صلاحية الوصول لهذا السجل');
             }
@@ -123,22 +123,28 @@ export class SubscriptionService {
         });
     }
 
-    async getMembers(user: { id: string, role: string }, entityId?: string) {
-        let where: any = entityId ? { entityId } : {};
+    async getMembers(user: { id: string, role: string }, filters?: { entityId?: string, paymentEntityId?: string }) {
+        let where: any = {};
+        
+        if (filters?.entityId) where.entityId = filters.entityId;
+        if (filters?.paymentEntityId) where.paymentEntityId = filters.paymentEntityId;
 
         if (user.role === 'ENCARGADO') {
-            if (entityId) {
+            const ownedCondition = { userId: user.id };
+            if (filters?.entityId) {
                 // Verify they own this entity
                 const ownEntity = await prisma.entity.findFirst({
-                    where: { id: entityId, userId: user.id }
+                    where: { id: filters.entityId, userId: user.id }
                 });
-                if (!ownEntity) {
-                    // Force an empty allow if they don't own it
-                    return [];
-                }
+                if (!ownEntity) return [];
+            } else if (filters?.paymentEntityId) {
+                const ownEntity = await prisma.entity.findFirst({
+                    where: { id: filters.paymentEntityId, userId: user.id }
+                });
+                if (!ownEntity) return [];
             } else {
                 // No specific entity requested, only show their own entities
-                where = { entity: { userId: user.id } };
+                where.entity = ownedCondition;
             }
         }
 
@@ -146,6 +152,7 @@ export class SubscriptionService {
             where,
             include: {
                 entity: true,
+                paymentEntity: true,
                 manager: { select: { id: true, name: true, phone: true } },
                 subscriptions: true,
                 exemptions: true
@@ -154,29 +161,49 @@ export class SubscriptionService {
     }
 
     async getDueMembers(user: { id: string, role: string }, entityId: string, year: number) {
-        // Enforce ownership if Encargado
-        if (user.role === 'ENCARGADO') {
-            const ownEntity = await prisma.entity.findFirst({
-                where: { id: entityId, userId: user.id }
-            });
-            if (!ownEntity) throw new Error('لا تملك صلاحية الوصول لهذه الجهة');
+        if (year && (year < 2010 || year > 2100)) {
+            throw new Error('السنة يجب أن تكون بين 2010 و 2100');
+        }
+        let where: any = {
+            affiliationYear: { lte: year },
+            // Ensure the member is either active or stopped in or after the requested year
+            OR: [
+                { status: 'ACTIVE' },
+                { stoppedAt: null },
+                { stoppedAt: { gte: new Date(year, 0, 1) } }
+            ],
+            subscriptions: {
+                none: {
+                    year: year
+                }
+            },
+            exemptions: {
+                none: {
+                    year: year
+                }
+            }
+        };
+
+        if (entityId !== 'ALL') {
+            // Enforce ownership if Encargado
+            if (user.role === 'ENCARGADO') {
+                const ownEntity = await prisma.entity.findFirst({
+                    where: { id: entityId, userId: user.id }
+                });
+                if (!ownEntity) throw new Error('لا تملك صلاحية الوصول لهذه الجهة');
+            }
+            where.paymentEntityId = entityId;
+        } else {
+            // ALL entities
+            if (user.role === 'ENCARGADO') {
+                where.paymentEntity = {
+                    userId: user.id
+                };
+            }
         }
 
         const members = await prisma.member.findMany({
-            where: {
-                entityId,
-                affiliationYear: { lte: year },
-                subscriptions: {
-                    none: {
-                        year: year
-                    }
-                },
-                exemptions: {
-                    none: {
-                        year: year
-                    }
-                }
-            },
+            where,
             include: {
                 entity: {
                     include: {
@@ -203,6 +230,14 @@ export class SubscriptionService {
         status: EntryStatus;
     }) {
         const { id, date, description, items, debitAccountId, creditAccountId, branchId, status } = data;
+        
+        // Validate years in items
+        for (const item of items) {
+            if (item.year && (item.year < 2010 || item.year > 2100)) {
+                throw new Error(`السنة ${item.year} غير صالحة. يجب أن تكون بين 2010 و 2100`);
+            }
+        }
+
         const createdBy = user.id;
 
         console.log('--- Collection Process Start ---', { status, id, itemsCount: items.length });
@@ -211,19 +246,25 @@ export class SubscriptionService {
             // 0. Validate same entity for all members
             const members = await tx.member.findMany({
                 where: { id: { in: items.map(it => it.memberId) } },
-                select: { entityId: true }
+                select: { paymentEntityId: true }
             });
-            const entityIds = new Set(members.map(m => m.entityId));
-            if (entityIds.size > 1) {
-                throw new Error('لا يمكن تحصيل اشتراكات لأكثر من جهة في سجل واحد');
+            const entityIds = new Set(members.map(m => m.paymentEntityId));
+            const targetEntityId = Array.from(entityIds)[0];
+            
+            // Allow multiple entities but keep same branch validation (already done by branchId check later)
+            // If ENCARGADO, check they own ALL entities in the batch
+            if (user.role === 'ENCARGADO') {
+                const ownedCount = await tx.entity.count({
+                    where: { id: { in: Array.from(entityIds) as string[] }, userId: user.id }
+                });
+                if (ownedCount !== entityIds.size) {
+                    throw new Error('لا تملك صلاحية تحصيل اشتراكات لبعض الجهات المحددة');
+                }
             }
 
-            const targetEntityId = Array.from(entityIds)[0];
-            if (user.role === 'ENCARGADO') {
-                const ownEntity = await tx.entity.findFirst({
-                    where: { id: targetEntityId, userId: user.id }
-                });
-                if (!ownEntity) throw new Error('لا تملك صلاحية تحصيل اشتراكات لهذه الجهة');
+            // ... Check if targetEntityId exists only if needed for reporting, but we won't stop if many entities
+            if (!targetEntityId) {
+                throw new Error('لا يوجد جهة دفع محددة لهؤلاء الأعضاء');
             }
 
             // 1. Calculate total amount defensively from possible Decimal objects
@@ -305,28 +346,23 @@ export class SubscriptionService {
                     throw new Error('لا يمكن ترحيل سجل يحتوي على أعضاء من فروع مختلفة في سند واحد');
                 }
 
-                const targetEntity = await tx.entity.findUnique({
-                    where: { id: targetEntityId },
-                    include: { currency: true }
-                });
-                if (!targetEntity) throw new Error('الجهة غير موجودة');
-
-                const entityExchangeRate = Number(targetEntity.currency.exchangeRate || 1);
-                const baseAmount = totalAmount * entityExchangeRate;
-
                 const debitAccount = await tx.account.findUnique({
-                    where: { id: debitAccountId },
+                    where: { id: debitAccountId as string },
                     include: { currency: true }
-                });
+                }) as (any & { currency: { exchangeRate: any } }) | null;
                 const creditAccount = await tx.account.findUnique({
-                    where: { id: creditAccountId },
+                    where: { id: creditAccountId as string },
                     include: { currency: true }
-                });
+                }) as (any & { currency: { exchangeRate: any } }) | null;
 
                 if (!debitAccount || !creditAccount) throw new Error('الحسابات المحددة غير موجودة');
+                if (debitAccount.currencyId !== creditAccount.currencyId) {
+                    throw new Error('يجب أن يكون الحساب المدين والدائن بنفس العملة لإتمام العملية');
+                }
 
-                const debitRate = Number(debitAccount.currency.exchangeRate || 1);
-                const creditRate = Number(creditAccount.currency.exchangeRate || 1);
+                // Total is already in the common currency (Debit Account Currency).
+                const commonRate = Number(debitAccount.currency.exchangeRate || 1);
+                const baseAmount = totalAmount * commonRate;
 
                 const lastEntry = await tx.journalEntry.findFirst({
                     where: { type: JournalEntryType.RECEIPT, branchId },
@@ -350,9 +386,9 @@ export class SubscriptionService {
                                 {
                                     accountId: debitAccountId,
                                     currencyId: debitAccount.currencyId,
-                                    debit: baseAmount / debitRate,
+                                    debit: totalAmount,
                                     credit: 0,
-                                    exchangeRate: debitRate,
+                                    exchangeRate: commonRate,
                                     baseDebit: baseAmount,
                                     baseCredit: 0
                                 },
@@ -360,8 +396,8 @@ export class SubscriptionService {
                                     accountId: creditAccountId,
                                     currencyId: creditAccount.currencyId,
                                     debit: 0,
-                                    credit: baseAmount / creditRate,
-                                    exchangeRate: creditRate,
+                                    credit: totalAmount,
+                                    exchangeRate: commonRate,
                                     baseDebit: 0,
                                     baseCredit: baseAmount
                                 }
@@ -413,7 +449,7 @@ export class SubscriptionService {
                 const member = collection.items[0]?.member;
                 if (member) {
                     const ownEntity = await tx.entity.findFirst({
-                        where: { id: member.entityId, userId: user.id }
+                        where: { id: member.paymentEntityId || member.entityId, userId: user.id }
                     });
                     if (!ownEntity) throw new Error('لا تملك صلاحية إلغاء ترحيل هذا السجل');
                 }
@@ -488,7 +524,17 @@ export class SubscriptionService {
                 }
 
                 // Use provided year, or defaultYear, or fallback to current year
-                const affiliationYear = Number(row.affiliationYear) || fallbackYear;
+                let affiliationYear = Number(row.affiliationYear) || fallbackYear;
+                if (affiliationYear < 2010 || affiliationYear > 2100) {
+                    throw new Error('سنة الانتساب يجب أن تكون بين 2010 و 2100');
+                }
+
+                if (row.stoppedAt) {
+                    const stopYear = new Date(row.stoppedAt).getFullYear();
+                    if (stopYear < 2010 || stopYear > 2100) {
+                        throw new Error('سنة التوقف أو الوفاة يجب أن تكون بين 2010 و 2100');
+                    }
+                }
 
                 const statusInput = row.status?.toUpperCase() || 'ACTIVE';
                 const status = statusInput === 'INACTIVE' ? 'INACTIVE' : statusInput === 'DECEASED' ? 'DECEASED' : 'ACTIVE';
@@ -497,6 +543,7 @@ export class SubscriptionService {
                     data: {
                         name: String(row.name).trim(),
                         entityId: String(row.entityId),
+                        paymentEntityId: (row.paymentEntityId && row.paymentEntityId !== 'same') ? String(row.paymentEntityId) : String(row.entityId),
                         affiliationYear,
                         status,
                         stoppedAt: row.stoppedAt ? new Date(row.stoppedAt) : null,

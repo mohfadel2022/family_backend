@@ -10,6 +10,7 @@ import dashboardRoutes from './routes/dashboardRoutes';
 import subscriptionRoutes from './routes/subscriptionRoutes';
 import uploadRoutes from './routes/uploadRoutes';
 import notificationRoutes from './routes/notificationRoutes';
+import costCenterRoutes from './routes/costCenterRoutes';
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -25,6 +26,7 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/subscriptions', subscriptionRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/cost-centers', costCenterRoutes);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'OK' });

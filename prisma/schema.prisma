@@ -71,6 +71,7 @@ model Branch {
   journalEntries JournalEntry[]
   entities       Entity[]
   users          User[]         @relation("BranchUsers")
+  costCenters    CostCenter[]
 }
 
 model Entity {
@@ -86,7 +87,8 @@ model Entity {
   branchId String
   branch   Branch @relation(fields: [branchId], references: [id])
 
-  members   Member[]
+  members        Member[]
+  paymentMembers Member[] @relation("PaymentEntity")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -96,6 +98,8 @@ model Member {
   name            String
   entityId        String
   entity          Entity       @relation(fields: [entityId], references: [id])
+  paymentEntityId String?
+  paymentEntity   Entity?      @relation("PaymentEntity", fields: [paymentEntityId], references: [id])
   affiliationYear Int
   status          MemberStatus @default(ACTIVE)
   stoppedAt       DateTime?
@@ -199,6 +203,33 @@ model JournalLine {
 
   baseDebit  Decimal @default(0)
   baseCredit Decimal @default(0)
+ 
+  costCenters  JournalLineCostCenter[]
+}
+ 
+model JournalLineCostCenter {
+  id           String      @id @default(uuid())
+  lineId       String
+  line         JournalLine @relation(fields: [lineId], references: [id], onDelete: Cascade)
+  costCenterId String
+  costCenter   CostCenter  @relation(fields: [costCenterId], references: [id])
+  percentage   Decimal     @default(100)
+}
+
+model CostCenter {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  name      String
+  status    String   @default("ACTIVE") // ACTIVE, INACTIVE
+  branchId  String
+  branch    Branch   @relation(fields: [branchId], references: [id])
+  parentId  String?
+  parent    CostCenter? @relation("CostCenterHierarchy", fields: [parentId], references: [id])
+  children  CostCenter[] @relation("CostCenterHierarchy")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+ 
+  journalLines JournalLineCostCenter[]
 }
 
 model Role {
@@ -249,16 +280,17 @@ model User {
 }
 
 model Notification {
-  id        String   @id @default(uuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  title     String
-  message   String
-  category  String   @default("OPERATION") // OPERATION, TASK
-  type      String // e.g., 'MEMBER', 'COLLECTION', 'RECEIPT'
-  link      String? // URL path to navigate to when clicked
-  isRead    Boolean  @default(false)
-  createdAt DateTime @default(now())
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  title       String
+  message     String
+  category    String   @default("OPERATION") // OPERATION, TASK
+  type        String // e.g., 'MEMBER', 'COLLECTION', 'RECEIPT'
+  link        String? // URL path to navigate to when clicked
+  isRead      Boolean  @default(false)
+  isCompleted Boolean  @default(false)
+  createdAt   DateTime @default(now())
 
   @@index([userId, isRead, category])
 }

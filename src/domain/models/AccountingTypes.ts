@@ -1,3 +1,7 @@
+export interface JournalLineCostCenterDTO {
+  costCenterId: string;
+  percentage: number;
+}
 
 export interface JournalLineDTO {
   accountId: string;
@@ -7,6 +11,7 @@ export interface JournalLineDTO {
   exchangeRate: number;
   baseDebit: number;
   baseCredit: number;
+  costCenters?: JournalLineCostCenterDTO[];
 }
 
 export enum JournalEntryType {
