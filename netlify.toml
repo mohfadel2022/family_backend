@@ -5,9 +5,16 @@
 
 [functions]
   node_bundler = "esbuild"
+  external_node_modules = ["@prisma/client", "@prisma/adapter-libsql", "@libsql/client", "better-sqlite3"]
 
 [[redirects]]
-  from = "/*"
-  to = "/.netlify/functions/api/:splat"
+  from = "/api/*"
+  to = "/.netlify/functions/api"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/health"
+  to = "/.netlify/functions/api"
   status = 200
   force = true
