@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only --project tsconfig.json src/interfaces/http/server.ts",
     "build": "npx prisma generate && tsc",
-    "start": "npx prisma migrate deploy && node dist/interfaces/http/server.js",
+    "start": "node dist/interfaces/http/server.js",
     "prisma:generate": "npx prisma generate",
     "prisma:migrate": "npx prisma migrate dev",
     "test": "jest",
@@ -19,8 +19,8 @@
   "dependencies": {
     "@libsql/client": "^0.17.2",
     "@prisma/adapter-better-sqlite3": "^7.4.1",
-    "@prisma/adapter-libsql": "^7.7.0",
-    "@prisma/client": "^7.4.1",
+    "@prisma/adapter-libsql": "7.7.0",
+    "@prisma/client": "7.7.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/better-sqlite3": "^7.6.13",
     "@types/cors": "^2.8.19",
@@ -37,7 +37,7 @@
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.1.0",
     "nodemailer": "^8.0.3",
-    "prisma": "^7.4.1",
+    "prisma": "7.7.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
@@ -49,5 +49,8 @@
   },
   "prisma": {
     "seed": "ts-node --transpile-only prisma/seed.ts"
+  },
+  "engines": {
+    "node": ">=20.19"
   }
 }

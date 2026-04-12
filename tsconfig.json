@@ -10,6 +10,7 @@
         "forceConsistentCasingInFileNames": true,
         "moduleResolution": "node",
         "baseUrl": ".",
+        "types": ["node"],
         "paths": {
             "@/*": [
                 "src/*"
@@ -17,7 +18,9 @@
         }
     },
     "include": [
-        "src/**/*"
+        "src/**/*",
+        "scripts/**/*",
+        "prisma/**/*"
     ],
     "exclude": [
         "node_modules",
