@@ -1,9 +1,5 @@
-import { PrismaClient } from '@prisma/client';
-import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
+import prisma from '../src/infrastructure/database/prisma';
 import bcrypt from 'bcryptjs';
-
-const adapter = new PrismaBetterSqlite3({ url: 'prisma/dev.db' });
-const prisma = new PrismaClient({ adapter });
 
 async function main() {
   const salt = await bcrypt.genSalt(10);
@@ -14,7 +10,8 @@ async function main() {
     console.log('🌱 Seeding FULL data with RBAC support...');
 
     // ── Clear ────────────────────────────────────────────────────────────
-    await prisma.$executeRawUnsafe('PRAGMA foreign_keys = OFF;');
+    // PRAGMA foreign_keys = OFF is not supported by LibSQL adapter in $executeRawUnsafe
+
     await prisma.subscriptionCollectionItem.deleteMany();
     await prisma.subscriptionCollection.deleteMany();
     await prisma.memberSubscription.deleteMany();
@@ -33,7 +30,7 @@ async function main() {
     await prisma.permission.deleteMany();
     await prisma.user.deleteMany();
     await prisma.role.deleteMany();
-    await prisma.$executeRawUnsafe('PRAGMA foreign_keys = ON;');
+    // PRAGMA foreign_keys = ON is not supported by LibSQL adapter in $executeRawUnsafe
 
     // ── RBAC: Permissions ────────────────────────────────────────────────
     console.log(' - Setting up granular permissions...');

@@ -299,28 +299,122 @@ export class DashboardService {
         // Let's check the schema if Entity links to Branch or if we can use the memberSubscriptions relation.
 
 
+        const allAssetAccounts = await prisma.account.findMany({
+            where: { type: 'ASSET', ...whereBranch },
+            include: { currency: { select: { symbol: true } } }
+        });
+
+        // 1. Calculate individual balances for all asset accounts
+        const accountBalances = new Map<string, { id: string, name: string, parentId: string | null, balance: number, originalBalance: number, symbol: string }>();
+        
+        for (const acc of allAssetAccounts) {
+            accountBalances.set(acc.id, {
+                id: acc.id,
+                name: acc.name,
+                parentId: acc.parentId,
+                balance: 0,
+                originalBalance: 0,
+                symbol: acc.currency?.symbol || ''
+            });
+        }
+
         const assetLinesWithAccounts = await prisma.journalLine.findMany({
             where: {
                 account: { type: 'ASSET', ...whereBranch },
                 journalEntry: { status: EntryStatus.POSTED, ...financialEntryFilter }
             },
             include: {
-                account: { select: { name: true } },
-                currency: { select: { symbol: true } }
+                account: { select: { id: true } }
             }
         });
 
-        const assetBreakdownMap = new Map<string, { name: string, balance: number, originalBalance: number, symbol: string }>();
         for (const line of assetLinesWithAccounts) {
-            const accName = line.account.name;
-            const current = assetBreakdownMap.get(accName) || { name: accName, balance: 0, originalBalance: 0, symbol: line.currency?.symbol || '' };
-            current.balance += Number(line.baseDebit || 0) - Number(line.baseCredit || 0);
-            current.originalBalance += Number(line.debit || 0) - Number(line.credit || 0);
-            assetBreakdownMap.set(accName, current);
+            const acc = accountBalances.get(line.accountId);
+            if (acc) {
+                acc.balance += Number(line.baseDebit || 0) - Number(line.baseCredit || 0);
+                acc.originalBalance += Number(line.debit || 0) - Number(line.credit || 0);
+            }
         }
 
+        // 2. Aggregate balances upwards
+        // We need to make sure each account contributes to all its ancestors
+        const finalAccountMap = new Map<string, { name: string, balance: number, originalBalance: number, symbol: string, level: number, isParent: boolean }>();
+        
+        for (const acc of allAssetAccounts) {
+            const bal = accountBalances.get(acc.id)!;
+            
+            // Add this balance to the account itself and all its ancestors
+            let currentId: string | null = acc.id;
+            const visited = new Set<string>(); // Prevent cycles just in case
+            
+            while (currentId && !visited.has(currentId)) {
+                visited.add(currentId);
+                const currentAcc = allAssetAccounts.find(a => a.id === currentId);
+                if (!currentAcc) break;
+
+                const existing = finalAccountMap.get(currentAcc.id) || { 
+                    name: currentAcc.name, 
+                    balance: 0, 
+                    originalBalance: 0, 
+                    symbol: currentAcc.currency?.symbol || '',
+                    level: 0, // We'll compute level if needed
+                    isParent: allAssetAccounts.some(a => a.parentId === currentAcc.id) 
+                };
+                
+                // Only root accounts or specific level accounts contribute to the balance sum of ancestors? 
+                // No, each leaf's balance should be added once to each ancestor.
+                // Wait, if I add every account's balance to its ancestors, and I have entries at multiple levels, it works.
+                existing.balance += bal.balance;
+                // Original balance is tricky if multiple currencies are mixed in a group. 
+                // We'll only show original balance if the group has a consistent currency, otherwise we hide it in UI.
+                existing.originalBalance += bal.originalBalance; 
+                
+                finalAccountMap.set(currentAcc.id, existing);
+                currentId = currentAcc.parentId;
+            }
+        }
+
+        // 3. Build a forest (multiple trees) of asset accounts
+        const buildTree = (accountId: string): any => {
+            const acc = allAssetAccounts.find(a => a.id === accountId);
+            if (!acc) return null;
+
+            const groupedData = finalAccountMap.get(acc.id)!;
+            const children = allAssetAccounts
+                .filter(a => a.parentId === acc.id)
+                .map(a => buildTree(a.id))
+                .filter(Boolean)
+                .sort((a, b) => b.balance - a.balance);
+
+            return {
+                name: acc.name,
+                balance: groupedData.balance,
+                originalBalance: groupedData.originalBalance,
+                symbol: groupedData.symbol,
+                children: children.length > 0 ? children : undefined
+            };
+        };
+
+        // Identify root accounts (those with no parent in the ASSET tree)
+        const rootAssets = allAssetAccounts.filter(acc => !acc.parentId || !allAssetAccounts.some(a => a.id === acc.parentId));
+        
+        let displayAccounts: any[] = [];
+        
+        // If there's only one root (e.g., "Assets"), it's more useful to show its direct children as the top level
+        if (rootAssets.length === 1) {
+            const childrenOfRoot = allAssetAccounts.filter(acc => acc.parentId === rootAssets[0].id);
+            if (childrenOfRoot.length > 0) {
+                displayAccounts = childrenOfRoot.map(acc => buildTree(acc.id));
+            } else {
+                displayAccounts = [buildTree(rootAssets[0].id)];
+            }
+        } else {
+            displayAccounts = rootAssets.map(root => buildTree(root.id));
+        }
+
+        const assetsBreakdown = displayAccounts.sort((a, b) => b.balance - a.balance);
+
         const assetsByCurrency = Array.from(assetMap.values()).filter(a => Math.abs(a.balance) > 0.001);
-        const assetsBreakdown = Array.from(assetBreakdownMap.values()).filter(a => Math.abs(a.balance) > 0.001).sort((a, b) => b.balance - a.balance);
 
         // ──────────────────────────────────────────────
         // 2. FINANCIAL PERFORMANCE (Selected Year)

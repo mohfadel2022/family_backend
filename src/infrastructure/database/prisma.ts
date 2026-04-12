@@ -1,7 +1,12 @@
 import { PrismaClient } from '@prisma/client';
-import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
+import { PrismaLibSql } from '@prisma/adapter-libsql';
+import 'dotenv/config';
 
-const adapter = new PrismaBetterSqlite3({ url: 'prisma/dev.db' });
+const adapter = new PrismaLibSql({
+  url: process.env.DATABASE_URL!,
+  authToken: process.env.DATABASE_TOKEN,
+});
+
 const prisma = new PrismaClient({ adapter });
 
 export default prisma;
