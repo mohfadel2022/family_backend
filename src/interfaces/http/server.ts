@@ -32,6 +32,10 @@ app.get('/health', (req, res) => {
   res.json({ status: 'OK' });
 });
 
-app.listen(PORT, () => {
-  console.log(`API Server running on port ${PORT}`);
-});
+if (process.env.NODE_ENV !== 'production' && process.env.NETLIFY !== 'true') {
+  app.listen(PORT, () => {
+    console.log(`API Server running on port ${PORT}`);
+  });
+}
+
+export default app;

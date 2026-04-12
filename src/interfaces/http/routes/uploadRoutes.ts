@@ -25,23 +25,9 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 // Single file upload
-router.post('/', authMiddleware, checkPermission(['VOUCHERS_CREATE', 'VOUCHERS_EDIT']), upload.single('file'), async (req: any, res) => {
-    try {
-        if (!req.file) {
-            return res.status(400).json({ error: 'No file uploaded' });
-        }
-
-        const fileUrl = `/uploads/${req.file.filename}`;
-
-        res.json({
-            fileName: req.file.originalname,
-            fileUrl: fileUrl,
-            fileType: req.file.mimetype,
-            fileSize: req.file.size
-        });
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
-    }
+router.post('/', authMiddleware, checkPermission(['VOUCHERS_CREATE', 'VOUCHERS_EDIT']), async (req: any, res) => {
+    // TEMPORARILY DISABLED FOR NETLIFY DEPLOYMENT
+    res.status(503).json({ error: 'La subida de archivos está temporalmente desactivada.' });
 });
 
 // Link attachment to journal entry
@@ -87,20 +73,8 @@ router.post('/link', authMiddleware, checkPermission(['VOUCHERS_EDIT']), async (
 
 // Delete file by URL (for files not yet linked to an attachment record)
 router.post('/delete-binary', authMiddleware, checkPermission(['VOUCHERS_CREATE', 'VOUCHERS_EDIT']), async (req: any, res) => {
-    const { fileUrl } = req.body;
-    if (!fileUrl) return res.status(400).json({ error: 'fileUrl is required' });
-
-    try {
-        const filePath = path.join(process.cwd(), fileUrl.startsWith('/') ? fileUrl.substring(1) : fileUrl);
-        if (fs.existsSync(filePath)) {
-            await unlinkAsync(filePath);
-            res.json({ message: 'File deleted successfully' });
-        } else {
-            res.status(404).json({ error: 'File not found' });
-        }
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
-    }
+    // TEMPORARILY DISABLED FOR NETLIFY DEPLOYMENT
+    res.status(503).json({ error: 'La eliminación de archivos físicos está temporalmente desactivada.' });
 });
 
 // Delete attachment
@@ -124,13 +98,13 @@ router.delete('/:id', authMiddleware, checkPermission(['VOUCHERS_EDIT', 'VOUCHER
             }
         }
 
-        // Physical file deletion
-        if (attachment.fileUrl) {
-            const filePath = path.join(process.cwd(), attachment.fileUrl.startsWith('/') ? attachment.fileUrl.substring(1) : attachment.fileUrl);
-            if (fs.existsSync(filePath)) {
-                await unlinkAsync(filePath).catch(err => console.error(`Failed to delete file: ${filePath}`, err));
-            }
-        }
+        // Physical file deletion - DISABLED
+        // if (attachment.fileUrl) {
+        //     const filePath = path.join(process.cwd(), attachment.fileUrl.startsWith('/') ? attachment.fileUrl.substring(1) : attachment.fileUrl);
+        //     if (fs.existsSync(filePath)) {
+        //         await unlinkAsync(filePath).catch(err => console.error(`Failed to delete file: ${filePath}`, err));
+        //     }
+        // }
 
         await prisma.attachment.delete({
             where: { id: req.params.id }
