@@ -85,7 +85,7 @@ export class DashboardService {
                 !m.exemptions.some(e => e.year === selectedYear)
             ).length;
 
-            const membersPaid = membersInYear.filter(m =>
+            const membersPaid = activeInYear.filter(m =>
                 m.subscriptions.some(s => s.year === selectedYear) ||
                 m.exemptions.some(e => e.year === selectedYear)
             ).length;
