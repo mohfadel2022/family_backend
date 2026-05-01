@@ -501,6 +501,16 @@ router.get('/collections', authMiddleware, checkPermission(['COLLECTS_VIEW']), a
     }
 });
 
+// Alias for collections history
+router.get('/history', authMiddleware, checkPermission(['COLLECTS_VIEW']), async (req: any, res) => {
+    try {
+        const collections = await service.getCollections(req.user);
+        res.json(collections);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 router.get('/collections/:id', authMiddleware, checkPermission(['COLLECTS_VIEW']), async (req: any, res) => {
     try {
         const collection = await service.getCollection(req.user, req.params.id);

@@ -242,13 +242,51 @@ export class SubscriptionService {
 
         console.log('--- Collection Process Start ---', { status, id, itemsCount: items.length });
 
+        // --- OPTIMIZED VALIDATION (Outside Transaction to avoid timeouts) ---
+        const memberIds = Array.from(new Set(items.map(it => it.memberId)));
+        const batchKeys = new Set();
+        for (const it of items) {
+            const key = `${it.memberId}-${it.year}`;
+            if (batchKeys.has(key)) {
+                throw new Error(`تكرار في البيانات المرسلة: العضو ذو المعرف ${it.memberId} مكرر لنفس السنة ${it.year}`);
+            }
+            batchKeys.add(key);
+        }
+
+        // Pre-fetch all related data in bulk
+        const [existingSubs, existingExemptions, membersInfo] = await Promise.all([
+            prisma.memberSubscription.findMany({
+                where: { memberId: { in: memberIds }, year: { in: items.map(it => it.year) } }
+            }),
+            prisma.memberExemption.findMany({
+                where: { memberId: { in: memberIds }, year: { in: items.map(it => it.year) } }
+            }),
+            prisma.member.findMany({
+                where: { id: { in: memberIds } },
+                select: { id: true, name: true, paymentEntityId: true }
+            })
+        ]);
+
+        const memberMap = new Map(membersInfo.map(m => [m.id, m]));
+        const subMap = new Set(existingSubs.map(s => `${s.memberId}-${s.year}`));
+        const exemptMap = new Set(existingExemptions.map(e => `${e.memberId}-${e.year}`));
+
+        // Validate items against bulk data
+        for (const it of items) {
+            const key = `${it.memberId}-${it.year}`;
+            const m = memberMap.get(it.memberId);
+            
+            if (subMap.has(key)) {
+                throw new Error(`العضو "${m?.name || it.memberId}" مسجل لديه اشتراك بالفعل لسنة ${it.year}`);
+            }
+            if (exemptMap.has(key)) {
+                throw new Error(`العضو "${m?.name || it.memberId}" لديه إعفاء مسجل لسنة ${it.year}. لا يمكن إضافة اشتراك.`);
+            }
+        }
+
         return prisma.$transaction(async (tx) => {
-            // 0. Validate same entity for all members
-            const members = await tx.member.findMany({
-                where: { id: { in: items.map(it => it.memberId) } },
-                select: { paymentEntityId: true }
-            });
-            const entityIds = new Set(members.map(m => m.paymentEntityId));
+            // 0. Validate same entity for all members (already fetched above)
+            const entityIds = new Set(membersInfo.map(m => m.paymentEntityId));
             const targetEntityId = Array.from(entityIds)[0];
             
             // Allow multiple entities but keep same branch validation (already done by branchId check later)
@@ -432,7 +470,7 @@ export class SubscriptionService {
                 ...collection,
                 journalEntryId
             };
-        });
+        }, { timeout: 30000 });
     }
 
     async unpostCollection(id: string, user: { id: string, role: string }) {
@@ -493,7 +531,7 @@ export class SubscriptionService {
             });
 
             return updated;
-        });
+        }, { timeout: 30000 });
     }
 
     async importMembers(user: { id: string, role: string }, filename: string, rows: any[], defaultYear?: number) {

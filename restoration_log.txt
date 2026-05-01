@@ -28,3 +28,105 @@
       Journal Entries: 7
     
 [2026-03-21T19:46:53.143Z] Restoration transaction completed successfully.
+[2026-05-01T17:40:14.674Z] Received /restore request. Body keys: data
+[2026-05-01T17:40:14.684Z] Data object keys: version, exportedAt, data
+[2026-05-01T17:40:14.689Z] Detected versioned backup format. Drilling into 'data' property.
+[2026-05-01T17:40:14.691Z] Running validateBackupData. Keys: currencies, branches, accounts, periods, journalEntries, journalLines, users, roles, permissions, rolePermissions, entities, members, memberSubscriptions, attachments, subscriptionCollections, subscriptionCollectionItems, importReports, auditLogs, notifications, themeConfigs, currencyHistory
+[2026-05-01T17:40:14.693Z] Checking counts: Currencies=4, Branches=1, Roles=3
+[2026-05-01T17:40:14.694Z] Validation PASSED successfully.
+[2026-05-01T17:40:14.697Z] Existing rollback backup is large (>50KB). Preserving it to avoid overwriting with empty state.
+[2026-05-01T17:40:14.699Z] Starting performRestoration. Keys received: currencies, branches, accounts, periods, journalEntries, journalLines, users, roles, permissions, rolePermissions, entities, members, memberSubscriptions, attachments, subscriptionCollections, subscriptionCollectionItems, importReports, auditLogs, notifications, themeConfigs, currencyHistory
+[2026-05-01T17:40:14.705Z] Transaction started. Clearing existing data...
+[2026-05-01T17:40:26.266Z] Starting rollback process...
+[2026-05-01T17:40:26.281Z] Running validateBackupData. Keys: currencies, branches, accounts, periods, journalEntries, journalLines, users, roles, permissions, rolePermissions, entities, members, memberSubscriptions, attachments, subscriptionCollections, subscriptionCollectionItems, importReports, auditLogs, notifications, themeConfigs, currencyHistory
+[2026-05-01T17:40:26.300Z] Checking counts: Currencies=4, Branches=1, Roles=3
+[2026-05-01T17:40:26.302Z] Validation PASSED successfully.
+[2026-05-01T17:40:26.304Z] Starting performRestoration. Keys received: currencies, branches, accounts, periods, journalEntries, journalLines, users, roles, permissions, rolePermissions, entities, members, memberSubscriptions, attachments, subscriptionCollections, subscriptionCollectionItems, importReports, auditLogs, notifications, themeConfigs, currencyHistory
+[2026-05-01T17:40:26.307Z] Transaction started. Clearing existing data...
+[2026-05-01T17:40:29.377Z] Starting rollback process...
+[2026-05-01T17:40:29.381Z] Running validateBackupData. Keys: currencies, branches, accounts, periods, journalEntries, journalLines, users, roles, permissions, rolePermissions, entities, members, memberSubscriptions, attachments, subscriptionCollections, subscriptionCollectionItems, importReports, auditLogs, notifications, themeConfigs, currencyHistory
+[2026-05-01T17:40:29.396Z] Checking counts: Currencies=4, Branches=1, Roles=3
+[2026-05-01T17:40:29.403Z] Validation PASSED successfully.
+[2026-05-01T17:40:29.407Z] Starting performRestoration. Keys received: currencies, branches, accounts, periods, journalEntries, journalLines, users, roles, permissions, rolePermissions, entities, members, memberSubscriptions, attachments, subscriptionCollections, subscriptionCollectionItems, importReports, auditLogs, notifications, themeConfigs, currencyHistory
+[2026-05-01T17:40:29.411Z] Transaction started. Clearing existing data...
+[2026-05-01T17:40:30.333Z] Starting rollback process...
+[2026-05-01T17:40:30.349Z] Running validateBackupData. Keys: currencies, branches, accounts, periods, journalEntries, journalLines, users, roles, permissions, rolePermissions, entities, members, memberSubscriptions, attachments, subscriptionCollections, subscriptionCollectionItems, importReports, auditLogs, notifications, themeConfigs, currencyHistory
+[2026-05-01T17:40:30.354Z] Checking counts: Currencies=4, Branches=1, Roles=3
+[2026-05-01T17:40:30.378Z] Validation PASSED successfully.
+[2026-05-01T17:40:30.383Z] Starting performRestoration. Keys received: currencies, branches, accounts, periods, journalEntries, journalLines, users, roles, permissions, rolePermissions, entities, members, memberSubscriptions, attachments, subscriptionCollections, subscriptionCollectionItems, importReports, auditLogs, notifications, themeConfigs, currencyHistory
+[2026-05-01T17:40:30.392Z] Transaction started. Clearing existing data...
+[2026-05-01T17:40:31.229Z] Starting rollback process...
+[2026-05-01T17:40:31.246Z] Running validateBackupData. Keys: currencies, branches, accounts, periods, journalEntries, journalLines, users, roles, permissions, rolePermissions, entities, members, memberSubscriptions, attachments, subscriptionCollections, subscriptionCollectionItems, importReports, auditLogs, notifications, themeConfigs, currencyHistory
+[2026-05-01T17:40:31.249Z] Checking counts: Currencies=4, Branches=1, Roles=3
+[2026-05-01T17:40:31.255Z] Validation PASSED successfully.
+[2026-05-01T17:40:31.257Z] Starting performRestoration. Keys received: currencies, branches, accounts, periods, journalEntries, journalLines, users, roles, permissions, rolePermissions, entities, members, memberSubscriptions, attachments, subscriptionCollections, subscriptionCollectionItems, importReports, auditLogs, notifications, themeConfigs, currencyHistory
+[2026-05-01T17:40:31.260Z] Transaction started. Clearing existing data...
+[2026-05-01T17:40:34.731Z] Starting rollback process...
+[2026-05-01T17:40:34.736Z] Running validateBackupData. Keys: currencies, branches, accounts, periods, journalEntries, journalLines, users, roles, permissions, rolePermissions, entities, members, memberSubscriptions, attachments, subscriptionCollections, subscriptionCollectionItems, importReports, auditLogs, notifications, themeConfigs, currencyHistory
+[2026-05-01T17:40:34.738Z] Checking counts: Currencies=4, Branches=1, Roles=3
+[2026-05-01T17:40:34.738Z] Validation PASSED successfully.
+[2026-05-01T17:40:34.739Z] Starting performRestoration. Keys received: currencies, branches, accounts, periods, journalEntries, journalLines, users, roles, permissions, rolePermissions, entities, members, memberSubscriptions, attachments, subscriptionCollections, subscriptionCollectionItems, importReports, auditLogs, notifications, themeConfigs, currencyHistory
+[2026-05-01T17:40:34.742Z] Transaction started. Clearing existing data...
+[2026-05-01T17:40:36.359Z] Starting rollback process...
+[2026-05-01T17:40:36.369Z] Running validateBackupData. Keys: currencies, branches, accounts, periods, journalEntries, journalLines, users, roles, permissions, rolePermissions, entities, members, memberSubscriptions, attachments, subscriptionCollections, subscriptionCollectionItems, importReports, auditLogs, notifications, themeConfigs, currencyHistory
+[2026-05-01T17:40:36.373Z] Checking counts: Currencies=4, Branches=1, Roles=3
+[2026-05-01T17:40:36.375Z] Validation PASSED successfully.
+[2026-05-01T17:40:36.376Z] Starting performRestoration. Keys received: currencies, branches, accounts, periods, journalEntries, journalLines, users, roles, permissions, rolePermissions, entities, members, memberSubscriptions, attachments, subscriptionCollections, subscriptionCollectionItems, importReports, auditLogs, notifications, themeConfigs, currencyHistory
+[2026-05-01T17:40:36.379Z] Transaction started. Clearing existing data...
+[2026-05-01T17:40:50.877Z] Received /restore request. Body keys: data
+[2026-05-01T17:40:50.889Z] Data object keys: version, exportedAt, data
+[2026-05-01T17:40:50.905Z] Detected versioned backup format. Drilling into 'data' property.
+[2026-05-01T17:40:50.914Z] Running validateBackupData. Keys: currencies, branches, accounts, periods, journalEntries, journalLines, users, roles, permissions, rolePermissions, entities, members, memberSubscriptions, attachments, subscriptionCollections, subscriptionCollectionItems, importReports, auditLogs, notifications, themeConfigs, currencyHistory
+[2026-05-01T17:40:50.916Z] Checking counts: Currencies=4, Branches=1, Roles=3
+[2026-05-01T17:40:50.920Z] Validation PASSED successfully.
+[2026-05-01T17:40:50.922Z] Existing rollback backup is large (>50KB). Preserving it to avoid overwriting with empty state.
+[2026-05-01T17:40:50.923Z] Starting performRestoration. Keys received: currencies, branches, accounts, periods, journalEntries, journalLines, users, roles, permissions, rolePermissions, entities, members, memberSubscriptions, attachments, subscriptionCollections, subscriptionCollectionItems, importReports, auditLogs, notifications, themeConfigs, currencyHistory
+[2026-05-01T17:40:50.925Z] Transaction started. Clearing existing data...
+[2026-05-01T17:40:52.838Z] Starting rollback process...
+[2026-05-01T17:40:52.844Z] Running validateBackupData. Keys: currencies, branches, accounts, periods, journalEntries, journalLines, users, roles, permissions, rolePermissions, entities, members, memberSubscriptions, attachments, subscriptionCollections, subscriptionCollectionItems, importReports, auditLogs, notifications, themeConfigs, currencyHistory
+[2026-05-01T17:40:52.848Z] Checking counts: Currencies=4, Branches=1, Roles=3
+[2026-05-01T17:40:52.854Z] Validation PASSED successfully.
+[2026-05-01T17:40:52.857Z] Starting performRestoration. Keys received: currencies, branches, accounts, periods, journalEntries, journalLines, users, roles, permissions, rolePermissions, entities, members, memberSubscriptions, attachments, subscriptionCollections, subscriptionCollectionItems, importReports, auditLogs, notifications, themeConfigs, currencyHistory
+[2026-05-01T17:40:52.860Z] Transaction started. Clearing existing data...
+[2026-05-01T20:57:32.714Z] Received /restore request. Body keys: data
+[2026-05-01T20:57:32.740Z] Data object keys: version, exportedAt, data
+[2026-05-01T20:57:32.756Z] Detected versioned backup format. Drilling into 'data' property.
+[2026-05-01T20:57:32.760Z] Running validateBackupData. Keys: currencies, branches, accounts, periods, journalEntries, journalLines, users, roles, permissions, rolePermissions, entities, members, memberSubscriptions, attachments, subscriptionCollections, subscriptionCollectionItems, importReports, auditLogs, notifications, themeConfigs, currencyHistory
+[2026-05-01T20:57:32.772Z] Checking counts: Currencies=4, Branches=1, Roles=3
+[2026-05-01T20:57:32.776Z] Validation PASSED successfully.
+[2026-05-01T20:57:32.781Z] Existing rollback backup is large (>50KB). Preserving it to avoid overwriting with empty state.
+[2026-05-01T20:57:32.790Z] Starting performRestoration. Keys received: currencies, branches, accounts, periods, journalEntries, journalLines, users, roles, permissions, rolePermissions, entities, members, memberSubscriptions, attachments, subscriptionCollections, subscriptionCollectionItems, importReports, auditLogs, notifications, themeConfigs, currencyHistory
+[2026-05-01T20:57:32.813Z] Transaction started. Clearing existing data...
+[2026-05-01T20:57:33.114Z] Database cleared successfully.
+[2026-05-01T20:57:33.524Z] Re-inserting components: 
+      Currencies: 4
+      Branches: 1
+      Roles: 3
+      Permissions: 90
+      Entities: 10
+      Members: 369
+      Accounts: 42
+      Journal Entries: 29
+    
+[2026-05-01T20:57:38.808Z] Restoration transaction completed successfully.
+[2026-05-01T20:59:26.934Z] Received /restore request. Body keys: data
+[2026-05-01T20:59:26.945Z] Data object keys: version, exportedAt, data
+[2026-05-01T20:59:26.948Z] Detected versioned backup format. Drilling into 'data' property.
+[2026-05-01T20:59:26.950Z] Running validateBackupData. Keys: currencies, branches, accounts, periods, journalEntries, journalLines, users, roles, permissions, rolePermissions, entities, members, memberSubscriptions, attachments, subscriptionCollections, subscriptionCollectionItems, importReports, auditLogs, notifications, themeConfigs, currencyHistory
+[2026-05-01T20:59:26.967Z] Checking counts: Currencies=4, Branches=1, Roles=3
+[2026-05-01T20:59:27.016Z] Validation PASSED successfully.
+[2026-05-01T20:59:27.019Z] Existing rollback backup is large (>50KB). Preserving it to avoid overwriting with empty state.
+[2026-05-01T20:59:27.029Z] Starting performRestoration. Keys received: currencies, branches, accounts, periods, journalEntries, journalLines, users, roles, permissions, rolePermissions, entities, members, memberSubscriptions, attachments, subscriptionCollections, subscriptionCollectionItems, importReports, auditLogs, notifications, themeConfigs, currencyHistory
+[2026-05-01T20:59:27.034Z] Transaction started. Clearing existing data...
+[2026-05-01T20:59:27.264Z] Database cleared successfully.
+[2026-05-01T20:59:27.403Z] Re-inserting components: 
+      Currencies: 4
+      Branches: 1
+      Roles: 3
+      Permissions: 90
+      Entities: 10
+      Members: 369
+      Accounts: 42
+      Journal Entries: 29
+    
+[2026-05-01T20:59:30.701Z] Restoration transaction completed successfully.

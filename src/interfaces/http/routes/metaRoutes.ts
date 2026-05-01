@@ -1291,7 +1291,8 @@ const generateFullBackup = async () => {
     currencies, branches, accounts, periods, journalEntries, journalLines, users,
     roles, permissions, rolePermissions, entities, members, memberSubscriptions,
     attachments, subscriptionCollections, subscriptionCollectionItems, importReports,
-    auditLogs, notifications, pageThemeConfigs, currencyRateHistory
+    auditLogs, notifications, pageThemeConfigs, currencyRateHistory,
+    costCenters, journalLineCostCenters, memberExemptions
   ] = await Promise.all([
     prisma.currency.findMany(),
     prisma.branch.findMany(),
@@ -1313,7 +1314,10 @@ const generateFullBackup = async () => {
     prisma.auditLog.findMany(),
     prisma.notification.findMany(),
     prisma.pageThemeConfig.findMany(),
-    prisma.currencyRateHistory.findMany()
+    prisma.currencyRateHistory.findMany(),
+    prisma.costCenter.findMany(),
+    prisma.journalLineCostCenter.findMany(),
+    prisma.memberExemption.findMany()
   ]);
 
   return {
@@ -1323,7 +1327,8 @@ const generateFullBackup = async () => {
       currencies, branches, accounts, periods, journalEntries, journalLines, users,
       roles, permissions, rolePermissions, entities, members, memberSubscriptions,
       attachments, subscriptionCollections, subscriptionCollectionItems, importReports,
-      auditLogs, notifications, themeConfigs: pageThemeConfigs, currencyHistory: currencyRateHistory
+      auditLogs, notifications, themeConfigs: pageThemeConfigs, currencyHistory: currencyRateHistory,
+      costCenters, journalLineCostCenters, memberExemptions
     }
   };
 };
@@ -1337,10 +1342,19 @@ const validateBackupData = (data: any) => {
     'currencies', 'branches', 'accounts', 'periods', 'journalEntries',
     'journalLines', 'users', 'roles', 'permissions', 'rolePermissions',
     'entities', 'members', 'memberSubscriptions', 'attachments',
+    'subscriptionCollections', 'subscriptionCollectionItems', 'importReports', 'auditLogs',
+    // New keys (optional for backward compatibility)
+    'costCenters', 'journalLineCostCenters', 'memberExemptions'
+  ];
+
+  const criticalKeys = [
+    'currencies', 'branches', 'accounts', 'periods', 'journalEntries',
+    'journalLines', 'users', 'roles', 'permissions', 'rolePermissions',
+    'entities', 'members', 'memberSubscriptions', 'attachments',
     'subscriptionCollections', 'subscriptionCollectionItems', 'importReports', 'auditLogs'
   ];
 
-  const missingKeys = requiredKeys.filter(key => !data[key]);
+  const missingKeys = criticalKeys.filter(key => !data[key]);
 
   if (missingKeys.length > 0) {
     logRestoration(`Validation FAILED: Missing keys: ${missingKeys.join(', ')}`);
@@ -1455,6 +1469,8 @@ router.post('/restore-preview', authMiddleware, checkPermission(['DB_RESTORE']),
       periods: data.periods?.length || 0,
       auditLogs: data.auditLogs?.length || 0,
       notifications: data.notifications?.length || 0,
+      costCenters: data.costCenters?.length || 0,
+      memberExemptions: data.memberExemptions?.length || 0,
       timestamp: data.timestamp || new Date().toISOString()
     };
 
@@ -1483,7 +1499,7 @@ const performRestoration = async (data: any) => {
 
   await prisma.$transaction(async (tx) => {
     logRestoration("Transaction started. Clearing existing data...");
-    // Ordered delete to prevent FK constraint failures
+    // Ordered delete to prevent FK constraint failures (Leaves to Roots)
     await tx.importReport.deleteMany({});
     await tx.auditLog.deleteMany({});
     await tx.notification.deleteMany({}); // Crucial for User deletion
@@ -1491,11 +1507,20 @@ const performRestoration = async (data: any) => {
     await tx.subscriptionCollection.deleteMany({});
     await tx.memberSubscription.deleteMany({});
     await tx.attachment.deleteMany({});
+    
+    // Cost Center lines reference JournalLines and CostCenters
+    await (tx as any).journalLineCostCenter.deleteMany({});
+    
     await tx.journalLine.deleteMany({});
     await tx.journalEntry.deleteMany({});
 
     await tx.$executeRawUnsafe('PRAGMA foreign_keys = OFF;');
+    
     await tx.account.deleteMany({});
+    
+    // MemberExemptions reference Members
+    await (tx as any).memberExemption.deleteMany({});
+    
     await tx.member.deleteMany({});
     await tx.entity.deleteMany({});
 
@@ -1514,6 +1539,10 @@ const performRestoration = async (data: any) => {
     await tx.period.deleteMany({});
     await tx.pageThemeConfig.deleteMany({});
     await tx.currencyRateHistory.deleteMany({});
+    
+    // CostCenters reference Branches
+    await (tx as any).costCenter.deleteMany({});
+    
     await tx.branch.deleteMany({});
     await tx.currency.deleteMany({});
 
@@ -1545,8 +1574,32 @@ const performRestoration = async (data: any) => {
     try {
       if (data.currencies?.length) await tx.currency.createMany({ data: data.currencies });
       if (data.branches?.length) await tx.branch.createMany({ data: data.branches });
+      if (data.costCenters?.length) {
+        // Handle hierarchical CostCenters
+        const inserted = new Set<string>();
+        const remaining = [...data.costCenters];
+        let passes = 0;
+        while (remaining.length > 0 && passes < 10) {
+          passes++;
+          for (let i = remaining.length - 1; i >= 0; i--) {
+            const item = remaining[i];
+            if (!item.parentId || inserted.has(item.parentId)) {
+              await (tx as any).costCenter.create({ data: item });
+              inserted.add(item.id);
+              remaining.splice(i, 1);
+            }
+          }
+        }
+        // If some are still remaining (circular or missing parents), insert them anyway
+        if (remaining.length > 0) {
+          for (const item of remaining) {
+            const { parentId, ...rest } = item;
+            await (tx as any).costCenter.create({ data: rest });
+          }
+        }
+      }
     } catch (e: any) {
-      throw new Error("خطأ: العملات والفروع@@@" + e.message);
+      throw new Error("خطأ: العملات والفروع ومراكز التكلفة@@@" + e.message);
     }
 
     try {
@@ -1701,6 +1754,11 @@ const performRestoration = async (data: any) => {
           await tx.journalLine.createMany({ data: chunk as any });
         }
       }
+      if (data.journalLineCostCenters?.length) {
+        for (const chunk of chunkArray(data.journalLineCostCenters, 100)) {
+          await (tx as any).journalLineCostCenter.createMany({ data: chunk as any });
+        }
+      }
     } catch (e: any) {
       throw new Error("خطأ: القيود المحاسبية@@@" + e.message);
     }
@@ -1744,6 +1802,11 @@ const performRestoration = async (data: any) => {
       if (data.currencyHistory?.length) {
         for (const chunk of chunkArray(data.currencyHistory, 100)) {
           await tx.currencyRateHistory.createMany({ data: chunk as any });
+        }
+      }
+      if (data.memberExemptions?.length) {
+        for (const chunk of chunkArray(data.memberExemptions, 100)) {
+          await (tx as any).memberExemption.createMany({ data: chunk as any });
         }
       }
     } catch (e: any) {
@@ -1888,6 +1951,13 @@ router.delete('/reset-all', authMiddleware, checkPermission(['DB_RESET']), async
     await prisma.importReport.deleteMany({});
     await prisma.notification.deleteMany({});
     await prisma.pageThemeConfig.deleteMany({});
+    await prisma.journalLineCostCenter.deleteMany({});
+    await prisma.journalLine.deleteMany({});
+    await prisma.journalEntry.deleteMany({});
+    await prisma.memberExemption.deleteMany({});
+    await prisma.member.deleteMany({});
+    await prisma.entity.deleteMany({});
+    await prisma.costCenter.deleteMany({});
     await prisma.account.deleteMany({});
     await prisma.period.deleteMany({});
     await prisma.currencyRateHistory.deleteMany({});

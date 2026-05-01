@@ -2,11 +2,11 @@
   "name": "backend",
   "version": "1.0.0",
   "description": " ",
-  "main": "dist/interfaces/http/server.js",
+  "main": "dist/src/interfaces/http/server.js",
   "scripts": {
-    "dev": "ts-node-dev --respawn --transpile-only --project tsconfig.json src/interfaces/http/server.ts",
+    "dev": "ts-node-dev --respawn --transpile-only --watch .env --project tsconfig.json src/interfaces/http/server.ts",
     "build": "npx prisma generate && tsc",
-    "start": "node dist/interfaces/http/server.js",
+    "start": "node dist/src/interfaces/http/server.js",
     "prisma:generate": "npx prisma generate",
     "prisma:migrate": "npx prisma migrate dev",
     "test": "jest",
@@ -18,7 +18,7 @@
   "type": "commonjs",
   "dependencies": {
     "@libsql/client": "^0.17.2",
-    "@prisma/adapter-better-sqlite3": "^7.4.1",
+    "@prisma/adapter-better-sqlite3": "7.7.0",
     "@prisma/adapter-libsql": "7.7.0",
     "@prisma/client": "7.7.0",
     "@types/bcryptjs": "^2.4.6",
